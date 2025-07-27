@@ -1,0 +1,13 @@
+[package]
+name = "ccode"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.141"
+clap = { version = "4.5.41", features = ["derive"] }
+dirs = "6.0.0"
+anyhow = "1.0.98"
+chrono = { version = "0.4.41", features = ["serde"] }
+   
