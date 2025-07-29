@@ -461,7 +461,7 @@ pub fn cmd_list_ccr() -> AppResult<()> {
         }
 
         if let Some(timeout) = profile.api_timeout_ms {
-            println!("   ⏱️  超时: {}ms", timeout);
+            println!("   ⏱️  超时: {timeout}ms");
         }
 
         if let Some(desc) = &profile.description {
@@ -706,7 +706,7 @@ pub fn cmd_ccr_logs() -> AppResult<()> {
         let logs = manager.get_service_logs().await?;
 
         println!("📋 CCR服务日志:");
-        println!("{}", logs);
+        println!("{logs}");
 
         Ok::<(), crate::error::AppError>(())
     })?;
