@@ -61,7 +61,7 @@ pub fn cmd_add(name: String) -> AppResult<()> {
     println!();
 
     // 获取认证令牌
-    print!("🔑 请输入 ANTHROPIC_AUTH_TOKEN (以 sk- 开头): ");
+    print!("🔑 请输入 ANTHROPIC_AUTH_TOKEN (支持各种第三方API格式): ");
     io::stdout().flush().unwrap();
     let mut token = String::new();
     io::stdin().read_line(&mut token)?;
