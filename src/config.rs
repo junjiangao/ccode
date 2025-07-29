@@ -77,7 +77,7 @@ impl Config {
     /// 添加新配置
     pub fn add_profile(&mut self, name: String, profile: Profile) -> AppResult<()> {
         if self.profiles.contains_key(&name) {
-            return Err(AppError::Config(format!("配置 '{}' 已存在", name)));
+            return Err(AppError::Config(format!("配置 '{name}' 已存在")));
         }
 
         // 验证配置
@@ -155,7 +155,6 @@ impl Config {
             return Err(AppError::InvalidConfig("认证令牌不能为空".to_string()));
         }
 
-
         // 验证URL格式
         if profile.anthropic_base_url.trim().is_empty() {
             return Err(AppError::InvalidConfig("基础URL不能为空".to_string()));
@@ -170,5 +169,165 @@ impl Config {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_profile() -> Profile {
+        Profile {
+            anthropic_auth_token: "test-token-123".to_string(),
+            anthropic_base_url: "https://api.anthropic.com".to_string(),
+            description: Some("Test profile".to_string()),
+            created_at: Some("2025-07-29T00:00:00Z".to_string()),
+        }
+    }
+
+    #[test]
+    fn test_config_default() {
+        let config = Config::default();
+        assert_eq!(config.version, "1.0");
+        assert_eq!(config.default, None);
+        assert!(config.profiles.is_empty());
+    }
+
+    #[test]
+    fn test_profile_creation() {
+        let profile = create_test_profile();
+        assert_eq!(profile.anthropic_auth_token, "test-token-123");
+        assert_eq!(profile.anthropic_base_url, "https://api.anthropic.com");
+        assert_eq!(profile.description, Some("Test profile".to_string()));
+    }
+
+    #[test]
+    fn test_add_profile() {
+        let mut config = Config::default();
+        let profile = create_test_profile();
+
+        let result = config.add_profile("test".to_string(), profile);
+        assert!(result.is_ok());
+        assert_eq!(config.profiles.len(), 1);
+        assert_eq!(config.default, Some("test".to_string()));
+    }
+
+    #[test]
+    fn test_add_duplicate_profile() {
+        let mut config = Config::default();
+        let profile = create_test_profile();
+
+        config
+            .add_profile("test".to_string(), profile.clone())
+            .unwrap();
+        let result = config.add_profile("test".to_string(), profile);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::Config(msg) => assert!(msg.contains("已存在")),
+            _ => panic!("Expected Config error"),
+        }
+    }
+
+    #[test]
+    fn test_remove_profile() {
+        let mut config = Config::default();
+        let profile = create_test_profile();
+
+        config.add_profile("test".to_string(), profile).unwrap();
+        assert_eq!(config.profiles.len(), 1);
+
+        let result = config.remove_profile("test");
+        assert!(result.is_ok());
+        assert!(config.profiles.is_empty());
+        assert_eq!(config.default, None);
+    }
+
+    #[test]
+    fn test_remove_nonexistent_profile() {
+        let mut config = Config::default();
+        let result = config.remove_profile("nonexistent");
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::ProfileNotFound(name) => assert_eq!(name, "nonexistent"),
+            _ => panic!("Expected ProfileNotFound error"),
+        }
+    }
+
+    #[test]
+    fn test_get_profile() {
+        let mut config = Config::default();
+        let profile = create_test_profile();
+
+        config.add_profile("test".to_string(), profile).unwrap();
+
+        let result = config.get_profile("test");
+        assert!(result.is_ok());
+        let retrieved_profile = result.unwrap();
+        assert_eq!(retrieved_profile.anthropic_auth_token, "test-token-123");
+    }
+
+    #[test]
+    fn test_set_default() {
+        let mut config = Config::default();
+        let profile = create_test_profile();
+
+        config.add_profile("test".to_string(), profile).unwrap();
+        config
+            .add_profile("test2".to_string(), create_test_profile())
+            .unwrap();
+
+        let result = config.set_default("test2");
+        assert!(result.is_ok());
+        assert_eq!(config.default, Some("test2".to_string()));
+    }
+
+    #[test]
+    fn test_validate_profile_empty_token() {
+        let config = Config::default();
+        let mut profile = create_test_profile();
+        profile.anthropic_auth_token = "".to_string();
+
+        let result = config.validate_profile(&profile);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::InvalidConfig(msg) => assert!(msg.contains("认证令牌不能为空")),
+            _ => panic!("Expected InvalidConfig error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_profile_invalid_url() {
+        let config = Config::default();
+        let mut profile = create_test_profile();
+        profile.anthropic_base_url = "invalid-url".to_string();
+
+        let result = config.validate_profile(&profile);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::InvalidConfig(msg) => assert!(msg.contains("基础URL格式无效")),
+            _ => panic!("Expected InvalidConfig error"),
+        }
+    }
+
+    #[test]
+    fn test_list_profiles() {
+        let mut config = Config::default();
+        let profile1 = create_test_profile();
+        let profile2 = create_test_profile();
+
+        config.add_profile("test1".to_string(), profile1).unwrap();
+        config.add_profile("test2".to_string(), profile2).unwrap();
+
+        let profiles = config.list_profiles();
+        assert_eq!(profiles.len(), 2);
+
+        // 检查默认配置标记
+        let default_count = profiles
+            .iter()
+            .filter(|(_, _, is_default)| *is_default)
+            .count();
+        assert_eq!(default_count, 1);
     }
 }

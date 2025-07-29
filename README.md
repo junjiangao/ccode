@@ -2,6 +2,13 @@
 
 **Claude Code 环境切换工具** - 一个用于快速切换不同API服务配置并启动claude程序的命令行工具
 
+[![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions)
+[![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions)
+[![Version](https://img.shields.io/github/v/release/junjiangao/ccode?include_prereleases)](https://github.com/junjiangao/ccode/releases)
+[![License](https://img.shields.io/github/license/junjiangao/ccode)](LICENSE)
+[![Rust Version](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://www.rust-lang.org)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgray)](https://github.com/junjiangao/ccode/releases)
+
 ## ✨ 特性
 
 - 🔧 **多配置管理**：支持管理多个API服务配置（如anyrouter、instcopilot等）
@@ -14,7 +21,31 @@
 
 ## 📦 安装
 
-### 从源码编译
+### 🚀 预编译二进制文件（推荐）
+
+从 [GitHub Releases](https://github.com/junjiangao/ccode/releases) 下载对应平台的预编译二进制文件：
+
+```bash
+# Linux (Debian 10+)
+wget https://github.com/junjiangao/ccode/releases/latest/download/ccode-linux-x86_64
+chmod +x ccode-linux-x86_64
+sudo mv ccode-linux-x86_64 /usr/local/bin/ccode
+
+# macOS (Intel)
+wget https://github.com/junjiangao/ccode/releases/latest/download/ccode-macos-x86_64
+chmod +x ccode-macos-x86_64
+sudo mv ccode-macos-x86_64 /usr/local/bin/ccode
+
+# macOS (Apple Silicon)
+wget https://github.com/junjiangao/ccode/releases/latest/download/ccode-macos-aarch64
+chmod +x ccode-macos-aarch64
+sudo mv ccode-macos-aarch64 /usr/local/bin/ccode
+
+# Windows
+# 下载 ccode-windows-x86_64.exe 并放到 PATH 中
+```
+
+### 🔨 从源码编译
 
 ```bash
 git clone <repository-url>
@@ -183,6 +214,24 @@ ccode通过设置环境变量来让claude程序使用不同的API服务：
 - 首次添加的配置会自动设为默认配置
 - 删除默认配置时会自动选择其他配置作为新默认
 
+## 📊 构建状态
+
+| 平台 | 状态 | 说明 |
+|------|------|------|
+| **持续集成** | [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions) | 代码质量检查、测试、安全扫描 (Debian 10) |
+| **自动发布** | [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions) | 跨平台二进制文件构建与发布 (Linux使用Debian 10) |
+| **Linux (Debian 10)** | ✅ 支持 | 主要测试环境 + 发布构建环境 |
+| **Windows** | ✅ 支持 | 跨平台兼容测试 |
+| **macOS** | ✅ 支持 | Intel + Apple Silicon |
+
+### 🔧 技术栈
+
+- **语言**: Rust 2024 Edition
+- **最低版本**: Rust 1.70+
+- **测试覆盖**: 11 个单元测试
+- **代码质量**: Zero warnings (clippy + rustfmt)
+- **安全扫描**: cargo-audit 自动检查
+
 ## 🛠️ 开发
 
 ### 项目结构
@@ -216,6 +265,51 @@ cargo build --release
 cargo test
 ```
 
+### 🧪 质量检查
+
+本地运行与CI相同的检查：
+
+```bash
+# 代码格式检查
+cargo fmt --check
+
+# 代码质量检查（零警告）
+cargo clippy -- -D warnings
+
+# 运行所有测试
+cargo test
+
+# 安全漏洞扫描
+cargo install cargo-audit
+cargo audit
+
+# 完整的CI检查流程
+cargo fmt --check && \
+cargo clippy -- -D warnings && \
+cargo test && \
+cargo build --release
+```
+
+### 🔄 CI/CD 流程
+
+项目使用 GitHub Actions 实现自动化：
+
+- **🔍 持续集成**: 每次 push 和 PR 都会触发
+  - 代码格式检查 (rustfmt)
+  - 代码质量检查 (clippy)
+  - 单元测试执行
+  - 跨平台构建验证 (Debian 10, Windows, macOS)
+  - 安全漏洞扫描 (cargo-audit)
+
+- **🚀 自动发布**: git tag 推送时触发
+  - 多平台二进制构建 (5个目标平台，Linux使用Debian 10)
+  - GitHub Releases 自动创建
+  - 源码归档和资产上传
+
+- **🔧 依赖管理**: Dependabot 自动维护
+  - 每周检查 Rust 依赖更新
+  - GitHub Actions 版本更新
+
 ## 📄 许可证
 
 本项目采用 [LICENSE](LICENSE) 许可证。
@@ -226,4 +320,4 @@ cargo test
 
 ---
 
-**最后更新**: 2025-07-27
+**最后更新**: 2025-07-29

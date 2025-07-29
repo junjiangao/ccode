@@ -27,7 +27,7 @@ pub fn cmd_list() -> AppResult<()> {
 
     for (name, profile, is_default) in profiles {
         let default_marker = if is_default { " (默认)" } else { "" };
-        println!("🔧 {}{}", name, default_marker);
+        println!("🔧 {name}{default_marker}");
         println!("   📍 URL: {}", profile.anthropic_base_url);
         println!(
             "   🔑 Token: {}...{}",
@@ -36,11 +36,11 @@ pub fn cmd_list() -> AppResult<()> {
         );
 
         if let Some(desc) = &profile.description {
-            println!("   📝 描述: {}", desc);
+            println!("   📝 描述: {desc}");
         }
 
         if let Some(created) = &profile.created_at {
-            println!("   📅 创建: {}", created);
+            println!("   📅 创建: {created}");
         }
         println!();
     }
@@ -54,10 +54,10 @@ pub fn cmd_add(name: String) -> AppResult<()> {
 
     // 检查配置是否已存在
     if config.profiles.contains_key(&name) {
-        return Err(AppError::Config(format!("配置 '{}' 已存在", name)));
+        return Err(AppError::Config(format!("配置 '{name}' 已存在")));
     }
 
-    println!("🔧 添加新配置: {}", name);
+    println!("🔧 添加新配置: {name}");
     println!();
 
     // 获取认证令牌
@@ -99,7 +99,7 @@ pub fn cmd_add(name: String) -> AppResult<()> {
     config.save()?;
 
     println!();
-    println!("✅ 配置 '{}' 添加成功！", name);
+    println!("✅ 配置 '{name}' 添加成功！");
 
     if config.profiles.len() == 1 {
         println!("🎯 已自动设为默认配置");
@@ -115,7 +115,7 @@ pub fn cmd_use(name: String) -> AppResult<()> {
     config.set_default(&name)?;
     config.save()?;
 
-    println!("✅ 已将 '{}' 设为默认配置", name);
+    println!("✅ 已将 '{name}' 设为默认配置");
     Ok(())
 }
 
@@ -134,7 +134,7 @@ pub fn cmd_run(name: Option<String>) -> AppResult<()> {
         }
     };
 
-    println!("🚀 使用配置 '{}' 启动 claude...", profile_name);
+    println!("🚀 使用配置 '{profile_name}' 启动 claude...");
     println!("📍 API URL: {}", profile.anthropic_base_url);
     println!();
 
@@ -157,10 +157,7 @@ pub fn cmd_run(name: Option<String>) -> AppResult<()> {
                     "找不到 'claude' 程序，请确保 claude 已安装并在 PATH 中".to_string(),
                 ));
             } else {
-                return Err(AppError::CommandExecution(format!(
-                    "执行 claude 失败: {}",
-                    e
-                )));
+                return Err(AppError::CommandExecution(format!("执行 claude 失败: {e}")));
             }
         }
     }
@@ -173,7 +170,7 @@ pub fn cmd_remove(name: String) -> AppResult<()> {
     let mut config = Config::load()?;
 
     // 确认删除
-    print!("⚠️  确定要删除配置 '{}' 吗？(y/N): ", name);
+    print!("⚠️  确定要删除配置 '{name}' 吗？(y/N): ");
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
@@ -187,12 +184,12 @@ pub fn cmd_remove(name: String) -> AppResult<()> {
     config.remove_profile(&name)?;
     config.save()?;
 
-    println!("✅ 配置 '{}' 已删除", name);
+    println!("✅ 配置 '{name}' 已删除");
 
     // 如果还有其他配置，显示当前默认配置
     if !config.profiles.is_empty() {
         if let Some(default) = &config.default {
-            println!("🎯 当前默认配置: {}", default);
+            println!("🎯 当前默认配置: {default}");
         }
     } else {
         println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
