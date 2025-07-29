@@ -1,6 +1,5 @@
 use crate::config::CcrProfile;
 use crate::error::{AppError, AppResult};
-use serde_json;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -48,8 +47,8 @@ impl CcrManager {
     /// 检查CCR命令是否可用
     pub async fn check_ccr_availability(&self) -> AppResult<bool> {
         // 检查是否安装了 @musistudio/claude-code-router
-        let output = Command::new("npm")
-            .args(&["list", "-g", "@musistudio/claude-code-router"])
+        let output = Command::new("pnpm")
+            .args(["list", "-g", "@musistudio/claude-code-router"])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output();
@@ -113,7 +112,7 @@ impl CcrManager {
             Ok(())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(AppError::Config(format!("npm命令执行失败: {}", stderr)))
+            Err(AppError::Config(format!("npm命令执行失败: {stderr}")))
         }
     }
 
@@ -149,7 +148,7 @@ impl CcrManager {
 
         // 启动CCR服务
         let mut cmd = Command::new("ccr");
-        cmd.args(&["start"])
+        cmd.args(["start"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -179,7 +178,7 @@ impl CcrManager {
         println!("🛑 停止CCR服务...");
 
         // 尝试优雅关闭
-        let output = Command::new("ccr").args(&["stop"]).output()?;
+        let output = Command::new("ccr").args(["stop"]).output()?;
 
         if output.status.success() {
             self.service_pid = None;
@@ -206,7 +205,7 @@ impl CcrManager {
             #[cfg(unix)]
             {
                 use std::os::unix::process::CommandExt;
-                let _ = Command::new("kill").args(&["-9", &pid.to_string()]).exec();
+                let _ = Command::new("kill").args(["-9", &pid.to_string()]).exec();
             }
 
             #[cfg(windows)]
@@ -243,7 +242,7 @@ impl CcrManager {
     async fn check_port_in_use(&self, port: u16) -> AppResult<bool> {
         use reqwest;
 
-        let url = format!("http://localhost:{}/health", port);
+        let url = format!("http://localhost:{port}/health");
 
         match timeout(Duration::from_secs(5), reqwest::get(&url)).await {
             Ok(Ok(response)) => Ok(response.status().is_success()),
