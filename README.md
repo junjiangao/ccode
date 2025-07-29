@@ -9,7 +9,7 @@
 - 🚀 **自动启动**：设置环境变量后自动启动claude程序
 - 💻 **交互式操作**：友好的命令行交互界面
 - 🎯 **默认配置**：支持设置和管理默认配置
-- 🛡️ **配置验证**：自动验证token和URL格式
+- 🛡️ **配置验证**：自动验证URL格式，支持各种第三方API token
 - 🌐 **跨平台**：支持Windows、macOS、Linux
 
 ## 📦 安装
@@ -43,7 +43,7 @@ ccode add anyrouter
 ```
 
 按提示输入：
-- ANTHROPIC_AUTH_TOKEN: `sk-your-token-here`
+- ANTHROPIC_AUTH_TOKEN: `your-api-token-here`
 - ANTHROPIC_BASE_URL: `https://anyrouter.top`
 - 描述（可选）: `AnyRouter API服务`
 
@@ -74,13 +74,13 @@ $ ccode list
 
 🔧 anyrouter (默认)
    📍 URL: https://anyrouter.top
-   🔑 Token: sk-ant...xyz
+   🔑 Token: your-token...xyz
    📝 描述: AnyRouter API服务
    📅 创建: 2025-07-27 15:30:00 UTC
 
 🔧 instcopilot
    📍 URL: https://instcopilot-api.com
-   🔑 Token: sk-ant...abc
+   🔑 Token: your-token...abc
    📝 描述: InstCopilot API服务
    📅 创建: 2025-07-27 15:35:00 UTC
 ```
@@ -92,7 +92,7 @@ $ ccode list
 $ ccode add instcopilot
 🔧 添加新配置: instcopilot
 
-🔑 请输入 ANTHROPIC_AUTH_TOKEN (以 sk- 开头): sk-ant-your-token
+🔑 请输入 ANTHROPIC_AUTH_TOKEN (支持各种第三方API格式): your-api-token
 📍 请输入 ANTHROPIC_BASE_URL (如: https://api.anthropic.com): https://instcopilot-api.com
 📝 请输入描述 (可选，直接回车跳过): InstCopilot API服务
 
@@ -146,13 +146,13 @@ $ ccode remove oldconfig
   "default": "anyrouter",
   "profiles": {
     "anyrouter": {
-      "ANTHROPIC_AUTH_TOKEN": "sk-ant-your-token",
+      "ANTHROPIC_AUTH_TOKEN": "your-api-token",
       "ANTHROPIC_BASE_URL": "https://anyrouter.top",
       "description": "AnyRouter API服务",
       "created_at": "2025-07-27 15:30:00 UTC"
     },
     "instcopilot": {
-      "ANTHROPIC_AUTH_TOKEN": "sk-ant-another-token",
+      "ANTHROPIC_AUTH_TOKEN": "your-another-token",
       "ANTHROPIC_BASE_URL": "https://instcopilot-api.com",
       "description": "InstCopilot API服务",
       "created_at": "2025-07-27 15:35:00 UTC"
@@ -178,7 +178,7 @@ ccode通过设置环境变量来让claude程序使用不同的API服务：
 ## ⚠️ 注意事项
 
 - 确保claude程序已安装并在PATH中
-- token格式必须以 `sk-` 开头
+- 支持各种第三方API token格式，无格式限制
 - URL必须以 `http://` 或 `https://` 开头
 - 首次添加的配置会自动设为默认配置
 - 删除默认配置时会自动选择其他配置作为新默认

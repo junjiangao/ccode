@@ -155,11 +155,6 @@ impl Config {
             return Err(AppError::InvalidConfig("认证令牌不能为空".to_string()));
         }
 
-        if !profile.anthropic_auth_token.starts_with("sk-") {
-            return Err(AppError::InvalidConfig(
-                "认证令牌格式无效，应以 'sk-' 开头".to_string(),
-            ));
-        }
 
         // 验证URL格式
         if profile.anthropic_base_url.trim().is_empty() {
