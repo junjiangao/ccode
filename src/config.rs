@@ -637,7 +637,8 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.version, "1.0");
         assert_eq!(config.default, None);
-        assert!(config.profiles.is_empty());
+        assert!(config.groups.direct.is_empty());
+        assert!(config.groups.ccr.is_empty());
     }
 
     #[test]
@@ -655,8 +656,11 @@ mod tests {
 
         let result = config.add_profile("test".to_string(), profile);
         assert!(result.is_ok());
-        assert_eq!(config.profiles.len(), 1);
-        assert_eq!(config.default, Some("test".to_string()));
+        assert_eq!(config.groups.direct.len(), 1);
+        assert_eq!(
+            config.default_profile.as_ref().unwrap().direct,
+            Some("test".to_string())
+        );
     }
 
     #[test]
@@ -682,12 +686,12 @@ mod tests {
         let profile = create_test_profile();
 
         config.add_profile("test".to_string(), profile).unwrap();
-        assert_eq!(config.profiles.len(), 1);
+        assert_eq!(config.groups.direct.len(), 1);
 
         let result = config.remove_profile("test");
         assert!(result.is_ok());
-        assert!(config.profiles.is_empty());
-        assert_eq!(config.default, None);
+        assert!(config.groups.direct.is_empty());
+        assert_eq!(config.default_profile.as_ref().unwrap().direct, None);
     }
 
     #[test]
@@ -727,7 +731,10 @@ mod tests {
 
         let result = config.set_default("test2");
         assert!(result.is_ok());
-        assert_eq!(config.default, Some("test2".to_string()));
+        assert_eq!(
+            config.default_profile.as_ref().unwrap().direct,
+            Some("test2".to_string())
+        );
     }
 
     #[test]
