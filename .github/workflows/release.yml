@@ -11,6 +11,10 @@ env:
 jobs:
   build_and_release:
     name: Build and Release
+    # 权限设置：允许写入仓库内容和读取 actions
+    permissions:
+      contents: write
+      actions: read
     strategy:
       matrix:
         include:
@@ -113,6 +117,10 @@ jobs:
   # 构建并上传源代码包
   build_source:
     name: Build Source Package
+    # 权限设置：允许写入仓库内容和读取 actions
+    permissions:
+      contents: write
+      actions: read
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
