@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            更新日志请查看 [CHANGELOG.md](CHANGELOG.md)
+          draft: false
+          prerelease: false
+
+  build_and_upload:
+    name: Build and Upload
+    needs: create_release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            container: debian:10
+            target: x86_64-unknown-linux-gnu
+            name: ccode-linux-x86_64
+            platform: linux
+          - os: ubuntu-latest
+            container: debian:10
+            target: x86_64-unknown-linux-musl
+            name: ccode-linux-x86_64-musl
+            platform: linux
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: ccode-windows-x86_64.exe
+            platform: windows
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: ccode-macos-x86_64
+            platform: macos
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: ccode-macos-aarch64
+            platform: macos
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container || null }}
+    steps:
+      - name: Install dependencies (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          apt-get update
+          apt-get install -y curl build-essential
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Install musl tools (Linux)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          apt-get update
+          apt-get install -y musl-tools
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+
+      - name: Prepare binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cp target/${{ matrix.target }}/release/ccode ${{ matrix.name }}
+          strip ${{ matrix.name }} || true
+
+      - name: Prepare binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cp target/${{ matrix.target }}/release/ccode.exe ${{ matrix.name }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./${{ matrix.name }}
+          asset_name: ${{ matrix.name }}
+          asset_content_type: application/octet-stream
+
+  # 构建并上传源代码包
+  build_source:
+    name: Build Source Package
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Create source archive
+        run: |
+          git archive --format=tar.gz --prefix=ccode-${{ github.ref_name }}/ HEAD > ccode-${{ github.ref_name }}-source.tar.gz
+
+      - name: Upload Source Archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./ccode-${{ github.ref_name }}-source.tar.gz
+          asset_name: ccode-${{ github.ref_name }}-source.tar.gz
+          asset_content_type: application/gzip

@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test Suite (Debian 10)
+    runs-on: ubuntu-latest
+    container: debian:10
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl build-essential
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+  cross_platform_check:
+    name: Cross Platform Check
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            container: debian:10
+            name: Linux (Debian 10)
+          - os: windows-latest
+            name: Windows
+          - os: macos-latest
+            name: macOS
+        rust: [stable]
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container || null }}
+    steps:
+      - name: Install dependencies (Linux)
+        if: matrix.container == 'debian:10'
+        run: |
+          apt-get update
+          apt-get install -y curl build-essential
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build project
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Test project
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  security_audit:
+    name: Security Audit (Debian 10)
+    runs-on: ubuntu-latest
+    container: debian:10
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl build-essential
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-audit
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-audit
+
+      - name: Run cargo audit
+        uses: actions-rs/cargo@v1
+        with:
+          command: audit
