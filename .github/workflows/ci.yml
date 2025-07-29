@@ -11,14 +11,9 @@ env:
 
 jobs:
   test:
-    name: Test Suite (Debian 10)
-    runs-on: ubuntu-latest
-    container: debian:10
+    name: Test Suite (Ubuntu 22.04 LTS)
+    runs-on: ubuntu-22.04
     steps:
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y curl build-essential
 
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -68,22 +63,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            container: debian:10
-            name: Linux (Debian 10)
+          - os: ubuntu-22.04
+            name: Linux (Ubuntu 22.04 LTS)
           - os: windows-latest
             name: Windows
           - os: macos-latest
             name: macOS
         rust: [stable]
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container || null }}
     steps:
-      - name: Install dependencies (Linux)
-        if: matrix.container == 'debian:10'
-        run: |
-          apt-get update
-          apt-get install -y curl build-essential
 
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -116,14 +104,9 @@ jobs:
           command: test
 
   security_audit:
-    name: Security Audit (Debian 10)
-    runs-on: ubuntu-latest
-    container: debian:10
+    name: Security Audit (Ubuntu 22.04 LTS)
+    runs-on: ubuntu-22.04
     steps:
-      - name: Install dependencies
-        run: |
-          apt-get update
-          apt-get install -y curl build-essential
 
       - name: Checkout sources
         uses: actions/checkout@v4

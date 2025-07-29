@@ -21,12 +21,23 @@
 
 ## 📦 安装
 
+### 📋 系统要求
+
+#### 官方预编译版本
+- **Linux**: Ubuntu 22.04 LTS (官方CI/CD构建和测试环境)
+- **Windows**: Windows 10/11
+- **macOS**: macOS 11+ (Intel + Apple Silicon)
+
+#### 其他Linux发行版
+- CentOS、openSUSE、Arch Linux等需要从源码自行编译
+- 最低要求：Rust 1.70+、glibc 2.31+
+
 ### 🚀 预编译二进制文件（推荐）
 
 从 [GitHub Releases](https://github.com/junjiangao/ccode/releases) 下载对应平台的预编译二进制文件：
 
 ```bash
-# Linux (Debian 10+)
+# Linux (Ubuntu 22.04 LTS 官方版本)
 wget https://github.com/junjiangao/ccode/releases/latest/download/ccode-linux-x86_64
 chmod +x ccode-linux-x86_64
 sudo mv ccode-linux-x86_64 /usr/local/bin/ccode
@@ -206,8 +217,19 @@ ccode通过设置环境变量来让claude程序使用不同的API服务：
    - `ANTHROPIC_BASE_URL`: API基础URL
 3. **启动claude**：使用设置的环境变量启动claude程序
 
-## ⚠️ 注意事项
+## ⚠️ 重要说明
 
+### 官方支持范围
+- 官方预编译二进制文件基于 Ubuntu 22.04 LTS 构建
+- CI/CD 流程在 Ubuntu 22.04 LTS 环境下测试和验证
+- 技术支持优先处理标准环境下的问题
+
+### 其他环境使用
+- 其他Linux发行版请从源码编译：`cargo build --release`
+- 编译环境要求：Rust 1.70+、现代C编译器
+- 运行时兼容性：支持大多数现代Linux发行版
+
+### 使用注意事项
 - 确保claude程序已安装并在PATH中
 - 支持各种第三方API token格式，无格式限制
 - URL必须以 `http://` 或 `https://` 开头
@@ -218,9 +240,10 @@ ccode通过设置环境变量来让claude程序使用不同的API服务：
 
 | 平台 | 状态 | 说明 |
 |------|------|------|
-| **持续集成** | [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions) | 代码质量检查、测试、安全扫描 (Debian 10) |
-| **自动发布** | [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions) | 跨平台二进制文件构建与发布 (Linux使用Debian 10) |
-| **Linux (Debian 10)** | ✅ 支持 | 主要测试环境 + 发布构建环境 |
+| **持续集成** | [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions) | 代码质量检查、测试、安全扫描 (Ubuntu 22.04 LTS) |
+| **自动发布** | [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions) | 跨平台二进制文件构建与发布 (Ubuntu 22.04 LTS) |
+| **Linux (Ubuntu 22.04 LTS)** | ✅ 官方支持 | CI/CD和发布的标准环境 |
+| **其他Linux发行版** | ⚠️ 社区支持 | 需要用户自行从源码编译 |
 | **Windows** | ✅ 支持 | 跨平台兼容测试 |
 | **macOS** | ✅ 支持 | Intel + Apple Silicon |
 
@@ -298,11 +321,11 @@ cargo build --release
   - 代码格式检查 (rustfmt)
   - 代码质量检查 (clippy)
   - 单元测试执行
-  - 跨平台构建验证 (Debian 10, Windows, macOS)
+  - 跨平台构建验证 (Ubuntu 22.04 LTS, Windows, macOS)
   - 安全漏洞扫描 (cargo-audit)
 
 - **🚀 自动发布**: git tag 推送时触发
-  - 多平台二进制构建 (5个目标平台，Linux使用Debian 10)
+  - 多平台二进制构建 (5个目标平台，Linux使用Ubuntu 22.04 LTS)
   - GitHub Releases 自动创建
   - 源码归档和资产上传
 

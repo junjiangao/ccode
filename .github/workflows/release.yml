@@ -9,38 +9,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  create_release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-            更新日志请查看 [CHANGELOG.md](CHANGELOG.md)
-          draft: false
-          prerelease: false
-
-  build_and_upload:
-    name: Build and Upload
-    needs: create_release
+  build_and_release:
+    name: Build and Release
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            container: debian:10
+          - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             name: ccode-linux-x86_64
             platform: linux
-          - os: ubuntu-latest
-            container: debian:10
+          - os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
             name: ccode-linux-x86_64-musl
             platform: linux
@@ -57,14 +35,7 @@ jobs:
             name: ccode-macos-aarch64
             platform: macos
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container || null }}
     steps:
-      - name: Install dependencies (Linux)
-        if: matrix.platform == 'linux'
-        run: |
-          apt-get update
-          apt-get install -y curl build-essential
-
       - name: Checkout sources
         uses: actions/checkout@v4
 
@@ -79,8 +50,8 @@ jobs:
       - name: Install musl tools (Linux)
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
-          apt-get update
-          apt-get install -y musl-tools
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -109,20 +80,40 @@ jobs:
           cp target/${{ matrix.target }}/release/ccode.exe ${{ matrix.name }}
 
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.name }}
+          body: |
+            ## 🚀 版本更新 ${{ github.ref_name }}
+            
+            ### 📦 预编译二进制文件
+            
+            本版本基于 **Ubuntu 22.04 LTS** 环境构建和测试，提供以下平台支持：
+            
+            - **Linux**: Ubuntu 22.04 LTS (官方支持)
+            - **Windows**: Windows 10/11  
+            - **macOS**: macOS 11+ (Intel + Apple Silicon)
+            
+            ### ⚠️ 系统要求
+            
+            - 官方预编译版本基于 Ubuntu 22.04 LTS 构建
+            - 其他 Linux 发行版请从源码编译: `cargo build --release`
+            - 最低要求: Rust 1.70+
+            
+            ### 📋 更新日志
+            
+            请查看提交历史了解详细变更内容。
+            
+            ---
+            
+            **构建环境**: Ubuntu 22.04 LTS | **构建时间**: ${{ github.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./${{ matrix.name }}
-          asset_name: ${{ matrix.name }}
-          asset_content_type: application/octet-stream
 
   # 构建并上传源代码包
   build_source:
     name: Build Source Package
-    needs: create_release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -132,11 +123,8 @@ jobs:
           git archive --format=tar.gz --prefix=ccode-${{ github.ref_name }}/ HEAD > ccode-${{ github.ref_name }}-source.tar.gz
 
       - name: Upload Source Archive
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ccode-${{ github.ref_name }}-source.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./ccode-${{ github.ref_name }}-source.tar.gz
-          asset_name: ccode-${{ github.ref_name }}-source.tar.gz
-          asset_content_type: application/gzip
