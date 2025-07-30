@@ -1,5 +1,6 @@
-use crate::config::CcrProfile;
+use crate::config::{CcrProfile, CcrProvider, Config, ProviderType};
 use crate::error::{AppError, AppResult};
+use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -44,7 +45,312 @@ impl CcrManager {
         self.config_dir.join("config.json")
     }
 
-    /// 检查CCR命令是否可用
+    /// 获取CCR配置备份目录路径
+    fn get_backup_dir(&self) -> PathBuf {
+        self.config_dir.join("backups")
+    }
+
+    /// 创建配置文件备份
+    pub fn create_backup(&self) -> AppResult<String> {
+        let config_path = self.get_ccr_config_path();
+
+        if !config_path.exists() {
+            return Err(AppError::Config(
+                "CCR配置文件不存在，无法创建备份".to_string(),
+            ));
+        }
+
+        // 创建备份目录
+        let backup_dir = self.get_backup_dir();
+        if !backup_dir.exists() {
+            fs::create_dir_all(&backup_dir)?;
+        }
+
+        // 生成备份文件名（带时间戳）
+        let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+        let backup_filename = format!("config_backup_{timestamp}.json");
+        let backup_path = backup_dir.join(&backup_filename);
+
+        // 复制配置文件到备份目录
+        fs::copy(&config_path, &backup_path)?;
+
+        println!("✅ 配置备份已创建: {}", backup_path.display());
+        Ok(backup_filename)
+    }
+
+    /// 列出所有备份文件
+    #[allow(dead_code)]
+    pub fn list_backups(&self) -> AppResult<Vec<String>> {
+        let backup_dir = self.get_backup_dir();
+
+        if !backup_dir.exists() {
+            return Ok(vec![]);
+        }
+
+        let mut backups = Vec::new();
+
+        for entry in fs::read_dir(backup_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
+                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                    if filename.starts_with("config_backup_") {
+                        backups.push(filename.to_string());
+                    }
+                }
+            }
+        }
+
+        // 按时间戳排序（最新的在前）
+        backups.sort_by(|a, b| b.cmp(a));
+
+        Ok(backups)
+    }
+
+    /// 从备份恢复配置
+    #[allow(dead_code)]
+    pub fn restore_from_backup(&self, backup_filename: &str) -> AppResult<()> {
+        let backup_dir = self.get_backup_dir();
+        let backup_path = backup_dir.join(backup_filename);
+
+        if !backup_path.exists() {
+            return Err(AppError::Config(format!(
+                "备份文件不存在: {backup_filename}"
+            )));
+        }
+
+        let config_path = self.get_ccr_config_path();
+
+        // 在恢复前创建当前配置的备份
+        if config_path.exists() {
+            let _ = self.create_backup(); // 忽略备份失败的错误
+        }
+
+        // 恢复配置文件
+        fs::copy(&backup_path, &config_path)?;
+
+        println!("✅ 配置已从备份恢复: {backup_filename}");
+        Ok(())
+    }
+
+    /// 删除指定的备份文件
+    #[allow(dead_code)]
+    pub fn delete_backup(&self, backup_filename: &str) -> AppResult<()> {
+        let backup_dir = self.get_backup_dir();
+        let backup_path = backup_dir.join(backup_filename);
+
+        if !backup_path.exists() {
+            return Err(AppError::Config(format!(
+                "备份文件不存在: {backup_filename}"
+            )));
+        }
+
+        fs::remove_file(&backup_path)?;
+
+        println!("✅ 备份文件已删除: {backup_filename}");
+        Ok(())
+    }
+
+    /// 清理旧的备份文件（保留最新的N个）
+    #[allow(dead_code)]
+    pub fn cleanup_old_backups(&self, keep_count: usize) -> AppResult<usize> {
+        let backups = self.list_backups()?;
+
+        if backups.len() <= keep_count {
+            return Ok(0);
+        }
+
+        let to_delete = &backups[keep_count..];
+        let mut deleted_count = 0;
+
+        for backup_filename in to_delete {
+            if let Err(e) = self.delete_backup(backup_filename) {
+                eprintln!("⚠️  删除备份文件失败: {backup_filename}, 错误: {e}");
+            } else {
+                deleted_count += 1;
+            }
+        }
+
+        if deleted_count > 0 {
+            println!("🧹 已清理 {deleted_count} 个旧备份文件");
+        }
+
+        Ok(deleted_count)
+    }
+
+    /// 检查CCR配置是否为空
+    pub async fn is_ccr_config_empty(&self) -> AppResult<bool> {
+        let config_path = self.get_ccr_config_path();
+
+        if !config_path.exists() {
+            return Ok(true);
+        }
+
+        // 读取配置文件
+        let content = fs::read_to_string(&config_path)?;
+
+        // 尝试解析JSON
+        match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(json) => {
+                // 检查是否有Providers字段且不为空
+                if let Some(providers) = json.get("Providers") {
+                    if let Some(providers_array) = providers.as_array() {
+                        return Ok(providers_array.is_empty());
+                    }
+                }
+                // 如果没有Providers字段，认为是空配置
+                Ok(true)
+            }
+            Err(_) => {
+                // 解析失败，认为是无效配置，当作空配置处理
+                Ok(true)
+            }
+        }
+    }
+
+    /// 从现有的claude-code-router配置文件导入配置到ccode
+    pub async fn import_from_ccr_config(&self) -> AppResult<Option<String>> {
+        let config_path = self.get_ccr_config_path();
+
+        if !config_path.exists() {
+            return Ok(None);
+        }
+
+        // 读取配置文件
+        let content = fs::read_to_string(&config_path)?;
+
+        // 解析CCR配置
+        let ccr_config: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| AppError::Config(format!("解析CCR配置文件失败: {e}")))?;
+
+        // 提取Providers信息
+        let providers = ccr_config
+            .get("Providers")
+            .and_then(|p| p.as_array())
+            .ok_or_else(|| AppError::Config("CCR配置文件中没有找到Providers字段".to_string()))?;
+
+        if providers.is_empty() {
+            return Ok(None);
+        }
+
+        // 读取现有的ccode配置
+        let mut ccode_config = Config::load().unwrap_or_default();
+
+        let mut imported_count = 0;
+
+        // 为每个provider创建一个ccode CCR配置
+        for (index, provider_json) in providers.iter().enumerate() {
+            // 解析provider信息
+            let default_name = format!("imported_provider_{}", index + 1);
+            let name = provider_json
+                .get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or(&default_name);
+
+            let api_base_url = provider_json
+                .get("api_base_url")
+                .and_then(|u| u.as_str())
+                .unwrap_or("");
+
+            let api_key = provider_json
+                .get("api_key")
+                .and_then(|k| k.as_str())
+                .unwrap_or("");
+
+            let models: Vec<String> = provider_json
+                .get("models")
+                .and_then(|m| m.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .map(|s| s.to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            if api_base_url.is_empty() || models.is_empty() {
+                continue; // 跳过无效的provider
+            }
+
+            // 检测provider类型
+            let provider_type = self.detect_provider_type(api_base_url, name);
+
+            // 创建CcrProvider
+            let provider = CcrProvider::new(
+                name.to_string(),
+                api_base_url.to_string(),
+                api_key.to_string(),
+                models.clone(),
+                provider_type,
+            );
+
+            // 创建默认路由
+            let default_route = if !models.is_empty() {
+                format!("{name},{}", models[0])
+            } else {
+                format!("{name},default-model")
+            };
+
+            // 创建CCR配置
+            match CcrProfile::new(
+                provider,
+                default_route,
+                Some(format!("从CCR配置导入: {name}")),
+            ) {
+                Ok(ccr_profile) => {
+                    let profile_name = format!("imported_{name}");
+
+                    // 检查是否已存在同名配置
+                    if !ccode_config.groups.ccr.contains_key(&profile_name) {
+                        if let Err(e) =
+                            ccode_config.add_ccr_profile(profile_name.clone(), ccr_profile)
+                        {
+                            eprintln!("⚠️  导入provider '{name}'失败: {e}");
+                        } else {
+                            imported_count += 1;
+                            println!("✅ 已导入provider '{name}' 为CCR配置 '{profile_name}'");
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("⚠️  创建CCR配置失败 '{name}': {e}");
+                }
+            }
+        }
+
+        if imported_count > 0 {
+            // 保存配置
+            ccode_config.save()?;
+            Ok(Some(format!("成功导入 {imported_count} 个CCR配置")))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 检测provider类型
+    fn detect_provider_type(&self, api_base_url: &str, name: &str) -> ProviderType {
+        let url_lower = api_base_url.to_lowercase();
+        let name_lower = name.to_lowercase();
+
+        if url_lower.contains("openrouter.ai") || name_lower.contains("openrouter") {
+            ProviderType::OpenRouter
+        } else if url_lower.contains("deepseek") || name_lower.contains("deepseek") {
+            ProviderType::DeepSeek
+        } else if url_lower.contains("generativelanguage.googleapis.com")
+            || url_lower.contains("/v1beta/models/")
+            || name_lower.contains("gemini")
+        {
+            ProviderType::Gemini
+        } else if name_lower.contains("qwen")
+            || url_lower.contains("dashscope")
+            || url_lower.contains("modelscope")
+        {
+            ProviderType::Qwen
+        } else {
+            ProviderType::OpenAI // 默认为OpenAI兼容
+        }
+    }
     pub async fn check_ccr_availability(&self) -> AppResult<bool> {
         // 检查是否安装了 @musistudio/claude-code-router
         let output = Command::new("pnpm")
@@ -116,12 +422,19 @@ impl CcrManager {
         }
     }
 
-    /// 生成CCR配置文件
+    /// 生成CCR配置文件（带备份）
     pub fn generate_ccr_config(&self, profile: &CcrProfile) -> AppResult<()> {
         let config_path = self.get_ccr_config_path();
 
+        // 如果配置文件已存在，先创建备份
+        if config_path.exists() {
+            if let Err(e) = self.create_backup() {
+                eprintln!("⚠️  创建备份失败: {e}");
+            }
+        }
+
         // 创建CCR标准格式的配置
-        let ccr_config = serde_json::to_value(profile)?;
+        let ccr_config = profile.to_ccr_config();
         let formatted_config = serde_json::to_string_pretty(&ccr_config)?;
 
         fs::write(&config_path, formatted_config)?;
