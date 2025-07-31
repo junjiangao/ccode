@@ -1,6 +1,6 @@
 # ccode 🚀
 
-**Claude Code 环境管理工具** - 支持双模式配置的Claude环境切换和智能路由代理工具
+**Claude Code 配置管理工具** - 支持双模式配置的Claude环境快速切换工具
 
 [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions)
 [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions)
@@ -12,26 +12,19 @@
 ## ✨ 核心特性
 
 ### 🔄 双模式架构
-- **🎯 Direct模式**：传统的简单API配置（向后兼容）
-- **🚀 CCR模式**：集成Claude Code Router的智能路由系统
+- **🎯 Direct模式**：简单的API配置，直接启动claude
+- **🛠️ Router模式**：通过RouterProfile管理复杂路由配置
 
-### 🌟 CCR模式优势
-- 🔀 **智能路由**：根据任务类型自动选择最适合的模型
-  - `default`: 日常任务的默认模型
-  - `background`: 后台任务的高性价比模型  
-  - `think`: 推理密集型任务的强推理模型
-  - `longContext`: 长上下文任务的大窗口模型
-  - `webSearch`: 网络搜索任务的专用模型
-- 🏗️ **多Provider支持**：OpenRouter、DeepSeek、Gemini、Qwen、自定义等
-- ⚖️ **负载均衡**：多个相同类型模型间的智能分配
-- 🔧 **请求转换**：自动适配不同Provider的API格式
-- 📊 **服务管理**：完整的CCR服务生命周期控制
-
-### 🛠️ 管理功能
-- 💾 **配置管理**：支持多配置存储和快速切换
-- 🎯 **智能推荐**：基于Provider类型的模型推荐
+### 🌟 主要功能
+- 📋 **配置管理**：支持多配置存储和快速切换
+- 🔀 **路由配置**：管理RouterProfile，支持不同场景的模型路由
+- 🎛️ **Provider管理**：管理claude-code-router的provider配置
 - 📱 **交互式操作**：友好的命令行交互界面
 - 🌐 **跨平台支持**：Windows、macOS、Linux
+
+### 🛠️ 工作模式
+- **Direct模式**：传统的token+base_url配置方式，直接启动claude程序
+- **Router模式**：管理RouterProfile配置，通过外部`ccr`命令启动路由功能
 
 ## 🚀 快速开始
 
@@ -39,7 +32,7 @@
 
 - **Rust**: 1.70+（如需从源码编译）
 - **Claude CLI**: 已安装claude命令行工具
-- **Node.js/npm**: CCR模式需要npm环境（自动管理依赖）
+- **ccr工具**: Router模式需要安装claude-code-router工具
 
 ### 📦 安装
 
@@ -105,106 +98,48 @@ ccode use myapi --group direct
 ccode run myapi --group direct
 ```
 
-### 🚀 CCR模式（智能路由）
+### 🛠️ Router模式（路由配置）
 
-适合复杂的多模型路由需求，支持智能选择和负载均衡。
+适合需要管理复杂路由配置的场景，依赖外部ccr工具。
 
-#### 添加CCR配置
+#### 添加Provider
+```bash
+ccode provider add deepseek
+```
+
+按提示配置Provider信息：
+- API Base URL
+- API Key  
+- 支持的模型列表
+- Provider类型
+
+#### 添加RouterProfile
 ```bash
 ccode add-ccr production
-# 或
-ccode add production --group ccr
 ```
 
-交互式配置流程：
-1. **Provider管理**：选择或添加多个Provider（OpenRouter、DeepSeek等）
-2. **模型配置**：为每个Provider配置可用模型
-3. **路由设置**：配置不同场景的路由规则
-4. **服务管理**：自动启动CCR服务
+交互式配置路由规则：
+- default: 默认路由
+- background: 后台任务路由
+- think: 推理任务路由
+- longContext: 长上下文路由
+- webSearch: 网络搜索路由
 
-#### CCR配置示例
-
-```json
-{
-  "providers": [
-    {
-      "name": "openrouter",
-      "api_base_url": "https://openrouter.ai/api/v1/chat/completions",
-      "api_key": "sk-or-xxx",
-      "models": ["anthropic/claude-3.5-sonnet", "google/gemini-2.5-pro-preview"],
-      "provider_type": "openrouter"
-    },
-    {
-      "name": "deepseek",
-      "api_base_url": "https://api.deepseek.com/chat/completions", 
-      "api_key": "sk-xxx",
-      "models": ["deepseek-chat", "deepseek-reasoner"],
-      "provider_type": "deepseek"
-    }
-  ],
-  "router": {
-    "default": "deepseek,deepseek-chat",
-    "background": "deepseek,deepseek-chat", 
-    "think": "deepseek,deepseek-reasoner",
-    "longContext": "openrouter,google/gemini-2.5-pro-preview",
-    "longContextThreshold": 60000
-  }
-}
-```
-
-#### 使用CCR配置
+#### 使用Router配置
 ```bash
-# 列出CCR配置
+# 列出RouterProfile
 ccode list-ccr
 
-# 设置默认CCR配置
+# 设置默认RouterProfile
 ccode use-ccr production
 
-# 启动claude（智能路由）
+# 启动claude（通过ccr工具）
 ccode run-ccr production
-```
-
-### ⚙️ CCR服务管理
-
-```bash
-# 启动CCR服务
-ccode ccr start
-
-# 查看服务状态
-ccode ccr status
-
-# 重启服务（配置更新后）
-ccode ccr restart
-
-# 停止服务
-ccode ccr stop
-
-# 查看服务日志
-ccode ccr logs
-```
-
-### 📊 Provider管理
-
-```bash
-# 列出所有Providers
-ccode provider list
-
-# 添加新Provider
-ccode provider add myProvider
-
-# 查看Provider详情
-ccode provider show myProvider
-
-# 编辑Provider
-ccode provider edit myProvider
-
-# 删除Provider
-ccode provider remove myProvider
 ```
 
 ## 📋 命令参考
 
-### 🔄 统一接口命令
+### 🔄 统一命令
 
 支持`--group direct|ccr`参数的通用命令：
 
@@ -225,29 +160,19 @@ ccode run [name] [--group direct|ccr]
 ccode remove <name> [--group direct|ccr]
 ```
 
-### 🚀 CCR快捷命令
+### 🛠️ Router模式快捷命令
 
-专门针对CCR模式的便捷命令：
-
-```bash
-ccode add-ccr <name>      # 添加CCR配置
-ccode list-ccr            # 列出CCR配置
-ccode use-ccr <name>      # 设置默认CCR配置
-ccode run-ccr [name]      # 启动CCR配置
-ccode remove-ccr <name>   # 删除CCR配置
-```
-
-### ⚙️ CCR服务命令
+专门针对Router模式的便捷命令：
 
 ```bash
-ccode ccr start           # 启动CCR服务
-ccode ccr stop            # 停止CCR服务
-ccode ccr restart         # 重启CCR服务
-ccode ccr status          # 查看服务状态
-ccode ccr logs            # 查看服务日志
+ccode add-ccr <name>      # 添加RouterProfile
+ccode list-ccr            # 列出RouterProfile
+ccode use-ccr <name>      # 设置默认RouterProfile
+ccode run-ccr [name]      # 启动RouterProfile（通过ccr工具）
+ccode remove-ccr <name>   # 删除RouterProfile
 ```
 
-### 📊 Provider命令
+### 📊 Provider管理命令
 
 ```bash
 ccode provider list       # 列出Providers
@@ -262,36 +187,79 @@ ccode provider remove <name># 删除Provider
 ### 配置存储位置
 - **Linux/macOS**: `~/.config/ccode/config.json`
 - **Windows**: `%APPDATA%/ccode/config.json`
-- **CCR配置**: `~/.claude-code-router/config.json`
+- **CCR配置**: `~/.claude-code-router/config.json`（由ccode管理）
 
-### 配置文件结构
+### ccode配置文件结构
 
 ```json
 {
   "version": "2.0",
+  "default_group": "direct",
+  "default_profile": {
+    "direct": "myapi",
+    "router": "production"
+  },
   "groups": {
     "direct": {
-      "default_profile": "myapi",
-      "profiles": {
-        "myapi": {
-          "ANTHROPIC_AUTH_TOKEN": "your-token",
-          "ANTHROPIC_BASE_URL": "https://api.example.com",
-          "description": "我的API服务",
-          "created_at": "2025-07-31T10:00:00Z"
-        }
+      "myapi": {
+        "ANTHROPIC_AUTH_TOKEN": "your-token",
+        "ANTHROPIC_BASE_URL": "https://api.example.com",
+        "description": "我的API服务",
+        "created_at": "2025-07-31T10:00:00Z"
       }
     },
-    "ccr": {
-      "default_profile": "production", 
-      "profiles": {
-        "production": {
-          "description": "生产环境CCR配置",
-          "providers": [...],
-          "router": {...},
-          "created_at": "2025-07-31T10:00:00Z"
-        }
+    "router": {
+      "production": {
+        "name": "production",
+        "router": {
+          "default": "deepseek,deepseek-chat",
+          "background": "qwen,qwen-plus",
+          "think": "deepseek,deepseek-reasoner",
+          "longContext": "qwen,qwen-max",
+          "longContextThreshold": 60000,
+          "webSearch": "qwen,qwen-plus"
+        },
+        "description": "生产环境路由配置",
+        "created_at": "2025-07-31T10:00:00Z"
       }
     }
+  }
+}
+```
+
+### CCR配置文件结构
+
+**文件位置**: `~/.claude-code-router/config.json`（由ccode自动管理）
+
+```json
+{
+  "providers": [
+    {
+      "name": "deepseek",
+      "api_base_url": "https://api.deepseek.com/chat/completions",
+      "api_key": "sk-xxx",
+      "models": ["deepseek-chat", "deepseek-reasoner"],
+      "provider_type": "deepseek"
+    },
+    {
+      "name": "qwen",
+      "api_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "api_key": "sk-xxx", 
+      "models": ["qwen-plus", "qwen-max"],
+      "provider_type": "qwen"
+    }
+  ],
+  "router": {
+    "default": "deepseek,deepseek-chat",
+    "background": "qwen,qwen-plus",
+    "think": "deepseek,deepseek-reasoner",
+    "longContext": "qwen,qwen-max",
+    "longContextThreshold": 60000,
+    "webSearch": "qwen,qwen-plus"
+  },
+  "transformer": {
+    "use": ["deepseek"],
+    "deepseek-chat": {"use": ["tooluse"]}
   }
 }
 ```
@@ -303,54 +271,66 @@ ccode provider remove <name># 删除Provider
 2. 设置环境变量：`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_BASE_URL`
 3. 启动claude程序
 
-### CCR模式  
-1. 生成CCR配置文件到`~/.claude-code-router/config.json`
-2. 启动CCR服务（监听localhost:3456）
-3. 设置环境变量指向CCR代理
-4. Claude请求通过CCR智能路由到最适合的模型
+### Router模式
+1. **读取RouterProfile**：从ccode配置中读取路由规则
+2. **应用配置**：将RouterProfile应用到CCR配置文件
+3. **启动路由**：调用外部`ccr code`命令启动路由功能
 
-### 智能路由策略
+### 配置管理架构
 
-CCR根据请求特征自动选择模型：
-
-- **默认任务** → `default`配置的模型
-- **后台任务** → 高性价比的`background`模型
-- **推理任务** → 强推理能力的`think`模型  
-- **长上下文** → 大窗口的`longContext`模型（超过阈值时）
-- **网络搜索** → 支持搜索的`webSearch`模型
+```
+┌─────────────────┐    管理配置    ┌──────────────────────┐
+│ ccode配置        │ ─────────────→ │ CCR配置文件          │
+│ ~/.config/ccode  │                │ ~/.claude-code-router │
+├─────────────────┤                ├──────────────────────┤
+│ router组:        │                │ providers: []        │
+│ • RouterProfile  │                │ router: {}           │
+│ • 路由规则       │                │ transformer: {}      │
+│ • 元数据         │                │                      │
+└─────────────────┘                └──────────────────────┘
+         │                                    │
+         │ ccode命令                          │ ccr工具
+         ▼                                    ▼
+┌─────────────────┐                ┌──────────────────────┐
+│ 配置管理         │                │ 路由执行             │
+│ • add-ccr       │                │ • ccr code           │
+│ • list-ccr      │                │ • 智能路由           │
+│ • provider管理   │                │ • API转换            │
+└─────────────────┘                └──────────────────────┘
+```
 
 ## 🎯 使用场景
 
 ### 个人开发者
-- Direct模式：简单API切换，快速上手
-- CCR模式：多模型测试，成本优化
+- **Direct模式**：简单API切换，快速上手
+- **Router模式**：管理多个API服务的路由配置
 
 ### 团队协作
-- 标准化多环境配置（开发/测试/生产）
-- 智能路由降低API成本
-- 统一的配置管理和分享
+- 标准化配置管理（开发/测试/生产）
+- 统一的RouterProfile配置和分享
+- 集中化的Provider管理
 
-### 企业用户
-- 多Provider容灾和负载均衡
-- 精细化的成本控制
-- 合规和安全的配置管理
+### 高级用户
+- 复杂的路由规则配置
+- 多Provider的配置管理
+- 与claude-code-router的深度集成
 
 ## ⚠️ 重要说明
+
+### 系统依赖
+- **claude CLI**：必须预先安装claude命令行工具
+- **ccr工具**：Router模式需要安装claude-code-router
+- **配置文件**：ccode仅管理配置，不包含服务管理功能
 
 ### 兼容性
 - **向后兼容**：现有Direct模式配置无需修改
 - **配置迁移**：自动从v1.0配置格式升级到v2.0
-- **CCR依赖**：CCR模式需要npm环境，但会自动管理依赖
+- **外部依赖**：依赖外部ccr工具进行路由功能
 
-### 系统要求
-- **官方支持**：Ubuntu 22.04 LTS（CI/CD标准环境）
-- **兼容性测试**：Windows、macOS、其他Linux发行版
-- **运行时要求**：现代Linux发行版，glibc 2.31+
-
-### 安全注意事项
-- API密钥加密存储（计划中）
-- 配置文件权限控制
-- CCR服务默认仅监听localhost
+### 限制说明
+- ccode不包含CCR服务管理功能（start/stop/restart等）
+- Router模式需要用户自行安装和管理ccr工具
+- 配置文件管理功能仅限于RouterProfile和Provider
 
 ## 📊 构建状态
 
@@ -368,8 +348,8 @@ CCR根据请求特征自动选择模型：
 - **语言**: Rust 2024 Edition
 - **最低版本**: Rust 1.70+
 - **CLI框架**: clap 4.x (derive API)
-- **异步运行时**: tokio (CCR服务管理)
-- **HTTP客户端**: reqwest (CCR API交互)
+- **异步运行时**: tokio (配置管理)
+- **HTTP客户端**: reqwest (外部API交互)
 
 ### 依赖管理
 - **序列化**: serde + serde_json
@@ -379,9 +359,8 @@ CCR根据请求特征自动选择模型：
 - **系统信息**: sysinfo
 
 ### 质量保证
-- **测试覆盖**: 单元测试 + 集成测试 (7个核心测试)
+- **测试覆盖**: 单元测试 + 集成测试
 - **代码质量**: Zero warnings (clippy + rustfmt)
-- **代码行数**: 3,122 行精简高效代码
 - **安全扫描**: cargo-audit 自动检查
 - **CI/CD**: GitHub Actions 全平台构建
 
@@ -464,4 +443,4 @@ cargo build --release
 
 ---
 
-**最后更新**: 2025-07-31 | **架构版本**: v2.0（双模式架构）
+**最后更新**: 2025-07-31 | **架构版本**: v0.2.0（配置管理工具）
