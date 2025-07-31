@@ -1,5 +1,4 @@
 use crate::ccr_config::CcrConfigManager;
-use crate::ccr_manager::CcrManager;
 use crate::config::{CcrProvider, CcrRouter, Config, Profile, ProviderType, RouterProfile};
 use crate::error::{AppError, AppResult};
 use chrono::Utc;
@@ -149,56 +148,10 @@ fn get_route_recommendations(
     recommendations
 }
 
-/// 列出所有配置
-#[allow(dead_code)]
-pub fn cmd_list() -> AppResult<()> {
-    let config = match Config::load() {
-        Ok(config) => config,
-        Err(AppError::ConfigNotFound) => {
-            println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
-            return Ok(());
-        }
-        Err(e) => return Err(e),
-    };
-
-    let profiles = config.list_profiles();
-
-    if profiles.is_empty() {
-        println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
-        return Ok(());
-    }
-
-    println!("📋 可用配置：");
-    println!();
-
-    for (name, profile, is_default) in profiles {
-        let default_marker = if is_default { " (默认)" } else { "" };
-        println!("🔧 {name}{default_marker}");
-        println!("   📍 URL: {}", profile.anthropic_base_url);
-        println!(
-            "   🔑 Token: {}...{}",
-            &profile.anthropic_auth_token[..7],
-            &profile.anthropic_auth_token[profile.anthropic_auth_token.len() - 4..]
-        );
-
-        if let Some(desc) = &profile.description {
-            println!("   📝 描述: {desc}");
-        }
-
-        if let Some(created) = &profile.created_at {
-            println!("   📅 创建: {created}");
-        }
-        println!();
-    }
-
-    Ok(())
-}
-
 /// 交互式添加配置
 pub fn cmd_add(name: String) -> AppResult<()> {
     let mut config = Config::load().unwrap_or_default();
 
-    // 检查配置是否已存在（检查direct组）
     if config.groups.direct.contains_key(&name) {
         return Err(AppError::Config(format!("配置 '{name}' 已存在")));
     }
@@ -271,11 +224,11 @@ pub fn cmd_run(name: Option<String>) -> AppResult<()> {
 
     let (profile_name, profile) = match name {
         Some(name) => {
-            let profile = config.get_profile(&name)?;
+            let profile = config.get_direct_profile(&name)?;
             (name, profile)
         }
         None => {
-            let (default_name, profile) = config.get_default_profile()?;
+            let (default_name, profile) = config.get_default_direct_profile()?;
             (default_name.clone(), profile)
         }
     };
@@ -349,8 +302,6 @@ pub fn cmd_remove(name: String) -> AppResult<()> {
     Ok(())
 }
 
-// ==================== 统一接口命令（支持--group参数） ====================
-
 /// 列出配置（统一接口）
 pub fn cmd_list_with_group(group: Option<String>) -> AppResult<()> {
     match group.as_deref() {
@@ -400,8 +351,6 @@ pub fn cmd_remove_with_group(name: String, group: Option<String>) -> AppResult<(
         None => cmd_remove(name), // 向后兼容
     }
 }
-
-// ==================== Direct组专用命令 ====================
 
 /// 列出所有配置（显示所有组）
 pub fn cmd_list_all() -> AppResult<()> {
@@ -577,10 +526,6 @@ pub fn cmd_remove_direct(name: String) -> AppResult<()> {
 
     Ok(())
 }
-
-// ==================== CCR组专用命令 ====================
-// 注意：旧的CCR Profile管理功能已被Provider + Router Profile架构取代
-// 下面的CCR快捷命令现在使用新架构实现
 
 /// 列出CCR配置（Router Profile）
 pub fn cmd_list_ccr() -> AppResult<()> {
@@ -994,168 +939,106 @@ pub fn cmd_use_ccr(name: String) -> AppResult<()> {
     Ok(())
 }
 
-/// 运行CCR配置（使用Router Profile架构）
+/// 运行CCR配置（使用原生ccr命令）
 pub fn cmd_run_ccr(name: Option<String>) -> AppResult<()> {
     println!("🚀 启动CCR配置...");
-    println!("💡 使用Provider + Router Profile架构");
+    println!("💡 使用ccr原生命令管理");
     println!();
 
-    // 重定向到现有的router运行逻辑，但保持CCR特色
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let config = Config::load().unwrap_or_default();
-        let ccr_manager = CcrConfigManager::new()?;
+    let config = Config::load().unwrap_or_default();
+    let ccr_manager = CcrConfigManager::new()?;
 
-        // 检查是否有 Router Profile 配置
-        if config.groups.router.is_empty() {
-            println!("❌ 暂无 Router Profile 配置");
-
-            // 检查是否有可用的 Providers
-            if !ccr_manager.config_exists() {
-                println!("💡 请先使用以下步骤配置:");
-                println!("   1. ccode provider add <name>  # 添加 Provider");
-                println!("   2. ccode router add <name>    # 添加 Router Profile");
-                return Ok(());
-            }
-
-            let providers = ccr_manager.list_providers()?;
-            if providers.is_empty() {
-                println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
-                return Ok(());
-            }
-
-            println!(
-                "💡 已有 {} 个 Provider，请使用 'ccode router add <name>' 添加 Router Profile",
-                providers.len()
-            );
-            return Ok(());
-        }
-
-        // 获取要使用的 Router Profile
-        let (profile_name, router_profile) = match name {
-            Some(name) => {
-                let profile = config.get_router_profile(&name)?;
-                (name, profile)
-            }
-            None => match config.get_default_router_profile() {
-                Ok((default_name, profile)) => (default_name.clone(), profile),
-                Err(_) => {
-                    println!("❌ 未设置默认 Router Profile");
-                    let profiles = config.list_router_profiles();
-                    if !profiles.is_empty() {
-                        println!("💡 可用的 Router Profile:");
-                        for (name, _, _) in profiles {
-                            println!("   • {name}");
-                        }
-                        println!("使用方法: ccode run-ccr <profile-name>");
-                        println!("或者设置默认: ccode router use <profile-name>");
-                    }
-                    return Ok(());
-                }
-            },
-        };
-
-        println!("🚀 使用 Router Profile '{profile_name}' 启动 claude...");
-        println!("🎯 默认路由: {}", router_profile.router.default);
-
-        // 显示路由配置信息
-        if let Some(background) = &router_profile.router.background {
-            println!("🔄 后台路由: {background}");
-        }
-        if let Some(think) = &router_profile.router.think {
-            println!("💭 思考路由: {think}");
-        }
-        if let Some(long_context) = &router_profile.router.long_context {
-            println!("📜 长上下文路由: {long_context}");
-        }
-        if let Some(web_search) = &router_profile.router.web_search {
-            println!("🔍 网络搜索路由: {web_search}");
-        }
-        println!();
-
-        // 检查 claude-code-router 配置文件是否存在且有 Provider
+    // 检查是否有 Router Profile 配置
+    if config.groups.router.is_empty() {
+        println!("❌ 暂无 Router Profile 配置");
         if !ccr_manager.config_exists() {
-            println!("❌ 未找到 claude-code-router 配置文件");
-            println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
-            return Ok(());
+            println!("💡 请先使用以下步骤配置:");
+            println!("   1. ccode provider add <name>  # 添加 Provider");
+            println!("   2. ccode add-ccr <name>       # 添加 Router Profile");
+        } else {
+            println!("💡 请使用 'ccode add-ccr <name>' 添加 Router Profile");
         }
+        return Ok(());
+    }
 
-        let providers = ccr_manager.list_providers()?;
-        if providers.is_empty() {
-            println!("❌ claude-code-router 配置文件中无 Provider");
-            println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
-            return Ok(());
+    // 获取要使用的 Router Profile
+    let (profile_name, router_profile) = match name {
+        Some(name) => {
+            let profile = config.get_router_profile(&name)?;
+            (name, profile)
         }
-
-        println!("📊 可用 Provider: {}", providers.len());
-        for provider in &providers {
-            println!("   • {} ({} 个模型)", provider.name, provider.models.len());
-        }
-        println!();
-
-        // 验证 Router Profile 中的 Provider 引用
-        println!("🔍 验证路由配置...");
-        let validation_errors = ccr_manager.validate_router_references()?;
-        if !validation_errors.is_empty() {
-            println!("⚠️  发现配置问题:");
-            for error in &validation_errors {
-                println!("   • {error}");
-            }
-            print!("是否继续运行？某些路由可能无法工作 (y/N): ");
-            io::stdout().flush().unwrap();
-            let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-
-            if input.trim().to_lowercase() != "y" {
-                println!("❌ 已取消运行");
-                println!("💡 请使用 'ccode provider add <name>' 添加缺失的 Provider");
+        None => match config.get_default_router_profile() {
+            Ok((default_name, profile)) => (default_name.clone(), profile),
+            Err(_) => {
+                println!("❌ 未设置默认 Router Profile");
+                let profiles = config.list_router_profiles();
+                if !profiles.is_empty() {
+                    println!("💡 可用的 Router Profile:");
+                    for (name, _, _) in profiles {
+                        println!("   • {name}");
+                    }
+                    println!("使用方法: ccode run-ccr <profile-name>");
+                    println!("或者设置默认: ccode use-ccr <profile-name>");
+                }
                 return Ok(());
             }
-        }
+        },
+    };
 
-        // 应用 Router Profile 到 claude-code-router 配置文件
-        println!("📄 应用 Router Profile 到配置文件...");
-        ccr_manager.apply_router_profile(router_profile)?;
+    println!("🎯 使用 Router Profile '{profile_name}'");
+    println!("🚀 默认路由: {}", router_profile.router.default);
 
-        // 创建 CCR 服务管理器
-        let mut service_manager = CcrManager::new()?;
+    // 显示路由配置信息
+    if let Some(background) = &router_profile.router.background {
+        println!("🔄 后台路由: {background}");
+    }
+    if let Some(think) = &router_profile.router.think {
+        println!("💭 思考路由: {think}");
+    }
+    if let Some(long_context) = &router_profile.router.long_context {
+        println!("📜 长上下文路由: {long_context}");
+    }
+    if let Some(web_search) = &router_profile.router.web_search {
+        println!("🔍 网络搜索路由: {web_search}");
+    }
+    println!();
 
-        // 检查并启动CCR服务
-        println!("📡 检查CCR服务状态...");
-        if !service_manager.is_service_running().await? {
-            println!("🚀 启动CCR服务...");
-            service_manager.start_service().await?;
-        } else {
-            println!("✅ CCR服务已在运行");
-        }
+    // 检查CCR配置文件是否存在
+    if !ccr_manager.config_exists() {
+        println!("❌ 未找到 claude-code-router 配置文件");
+        println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
+        return Ok(());
+    }
 
-        // 启动claude程序，通过CCR代理
-        println!("🎯 启动claude程序...");
-        let mut cmd = Command::new("claude");
-        cmd.env("ANTHROPIC_BASE_URL", "http://localhost:3456");
-        cmd.env("ANTHROPIC_AUTH_TOKEN", "any-string-is-ok"); // CCR会处理认证
+    // 应用 Router Profile 到 claude-code-router 配置文件
+    println!("📄 应用 Router Profile 到配置文件...");
+    ccr_manager.apply_router_profile(router_profile)?;
 
-        match cmd.status() {
-            Ok(status) => {
-                if status.success() {
-                    println!("✅ claude 程序正常退出");
-                } else {
-                    println!("⚠️  claude 程序异常退出，退出码: {:?}", status.code());
-                }
+    // 直接调用 ccr code 命令
+    println!("🎯 启动 ccr code...");
+    let mut cmd = Command::new("ccr");
+    cmd.arg("code");
+
+    match cmd.status() {
+        Ok(status) => {
+            if status.success() {
+                println!("✅ ccr code 程序正常退出");
+            } else {
+                println!("⚠️  ccr code 程序异常退出，退出码: {:?}", status.code());
             }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    return Err(AppError::CommandExecution(
-                        "找不到 'claude' 程序，请确保 claude 已安装并在 PATH 中".to_string(),
-                    ));
-                } else {
-                    return Err(AppError::CommandExecution(format!("执行 claude 失败: {e}")));
-                }
+        }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                return Err(AppError::CommandExecution(
+                    "找不到 'ccr' 程序，请确保 claude-code-router 已安装并在 PATH 中".to_string(),
+                ));
+            } else {
+                return Err(AppError::CommandExecution(format!(
+                    "执行 ccr code 失败: {e}"
+                )));
             }
         }
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
+    }
 
     Ok(())
 }
@@ -1234,67 +1117,6 @@ pub fn cmd_remove_ccr(name: String) -> AppResult<()> {
 
     Ok(())
 }
-
-// ==================== CCR服务管理命令 ====================
-
-/// 启动CCR服务
-pub fn cmd_ccr_start() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let mut manager = CcrManager::new()?;
-        manager.start_service().await
-    })
-}
-
-/// 停止CCR服务
-pub fn cmd_ccr_stop() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let mut manager = CcrManager::new()?;
-        manager.stop_service().await
-    })
-}
-
-/// 重启CCR服务
-pub fn cmd_ccr_restart() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let mut manager = CcrManager::new()?;
-        manager.restart_service().await
-    })
-}
-
-/// 查看CCR服务状态
-pub fn cmd_ccr_status() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-        let status = manager.get_service_status().await?;
-
-        println!("📊 CCR服务状态:");
-        print!("{}", status.format_status());
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
-    Ok(())
-}
-
-/// 查看CCR服务日志
-pub fn cmd_ccr_logs() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-        let logs = manager.get_service_logs().await?;
-
-        println!("📋 CCR服务日志:");
-        println!("{logs}");
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
-    Ok(())
-}
-
-// ==================== Provider 管理命令 ====================
 
 /// 列出所有 Providers
 pub fn cmd_provider_list() -> AppResult<()> {
@@ -1506,7 +1328,6 @@ pub fn cmd_provider_remove(name: String) -> AppResult<()> {
     manager.remove_provider(&name)?;
     println!("✅ Provider '{name}' 已删除");
 
-    // 如果有引用错误，提示用户检查 Router 配置
     if is_referenced {
         println!("💡 建议使用 'ccode router list' 检查相关路由配置");
     }

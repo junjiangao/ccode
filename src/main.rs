@@ -1,5 +1,4 @@
 mod ccr_config;
-mod ccr_manager;
 mod commands;
 mod config;
 mod error;
@@ -89,33 +88,12 @@ enum Commands {
         name: String,
     },
 
-    // CCR服务管理
-    /// CCR服务管理
-    Ccr {
-        #[command(subcommand)]
-        ccr_cmd: CcrCommands,
-    },
-
     // Provider管理
     /// Provider管理
     Provider {
         #[command(subcommand)]
         provider_cmd: ProviderCommands,
     },
-}
-
-#[derive(Subcommand)]
-enum CcrCommands {
-    /// 启动CCR服务
-    Start,
-    /// 停止CCR服务
-    Stop,
-    /// 重启CCR服务
-    Restart,
-    /// 查看CCR服务状态
-    Status,
-    /// 查看CCR服务日志
-    Logs,
 }
 
 #[derive(Subcommand)]
@@ -161,15 +139,6 @@ fn main() -> AppResult<()> {
         Commands::ListCcr => commands::cmd_list_ccr(),
         Commands::UseCcr { name } => commands::cmd_use_ccr(name),
         Commands::RemoveCcr { name } => commands::cmd_remove_ccr(name),
-
-        // CCR服务管理
-        Commands::Ccr { ccr_cmd } => match ccr_cmd {
-            CcrCommands::Start => commands::cmd_ccr_start(),
-            CcrCommands::Stop => commands::cmd_ccr_stop(),
-            CcrCommands::Restart => commands::cmd_ccr_restart(),
-            CcrCommands::Status => commands::cmd_ccr_status(),
-            CcrCommands::Logs => commands::cmd_ccr_logs(),
-        },
 
         // Provider管理
         Commands::Provider { provider_cmd } => match provider_cmd {

@@ -1,5 +1,4 @@
 pub mod ccr_config;
-pub mod ccr_manager;
 pub mod commands;
 pub mod config;
 pub mod error;

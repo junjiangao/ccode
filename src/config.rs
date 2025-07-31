@@ -192,15 +192,6 @@ impl CcrProvider {
         }
     }
 
-    /// 更新模型列表并重新生成transformer
-    #[allow(dead_code)]
-    pub fn update_models(&mut self, models: Vec<String>) {
-        self.models = models;
-        if let Some(provider_type) = &self.provider_type {
-            self.transformer = provider_type.generate_transformer(&self.models);
-        }
-    }
-
     /// 验证配置有效性
     pub fn validate(&self) -> AppResult<()> {
         if self.name.trim().is_empty() {
@@ -262,41 +253,6 @@ impl CcrRouter {
         }
     }
 
-    /// 设置background路由
-    #[allow(dead_code)]
-    pub fn with_background(mut self, background: Option<String>) -> Self {
-        self.background = background;
-        self
-    }
-
-    /// 设置think路由
-    #[allow(dead_code)]
-    pub fn with_think(mut self, think: Option<String>) -> Self {
-        self.think = think;
-        self
-    }
-
-    /// 设置longContext路由
-    #[allow(dead_code)]
-    pub fn with_long_context(mut self, long_context: Option<String>) -> Self {
-        self.long_context = long_context;
-        self
-    }
-
-    /// 设置longContextThreshold
-    #[allow(dead_code)]
-    pub fn with_long_context_threshold(mut self, threshold: Option<u32>) -> Self {
-        self.long_context_threshold = threshold.or(Some(60000)); // 默认60000
-        self
-    }
-
-    /// 设置webSearch路由
-    #[allow(dead_code)]
-    pub fn with_web_search(mut self, web_search: Option<String>) -> Self {
-        self.web_search = web_search;
-        self
-    }
-
     /// 验证路由配置有效性
     pub fn validate(&self) -> AppResult<()> {
         if self.default.trim().is_empty() {
@@ -350,68 +306,10 @@ impl CcrRouter {
 
         routes
     }
-
-    /// 应用默认值到未设置的路由
-    #[allow(dead_code)]
-    pub fn apply_defaults(&mut self) {
-        let default_route = self.default.clone();
-
-        if self.background.is_none() || self.background.as_ref().is_none_or(|s| s.is_empty()) {
-            self.background = Some(default_route.clone());
-        }
-        if self.think.is_none() || self.think.as_ref().is_none_or(|s| s.is_empty()) {
-            self.think = Some(default_route.clone());
-        }
-        if self.long_context.is_none() || self.long_context.as_ref().is_none_or(|s| s.is_empty()) {
-            self.long_context = Some(default_route.clone());
-        }
-        if self.web_search.is_none() || self.web_search.as_ref().is_none_or(|s| s.is_empty()) {
-            self.web_search = Some(default_route);
-        }
-
-        // 确保longContextThreshold有值
-        if self.long_context_threshold.is_none() {
-            self.long_context_threshold = Some(60000);
-        }
-    }
 }
 
 /// Provider模板生成器
 impl ProviderType {
-    /// 创建provider模板（用于交互式配置）
-    #[allow(dead_code)]
-    pub fn create_provider_template(
-        &self,
-        name: String,
-        api_key: String,
-        custom_url: Option<String>,
-    ) -> AppResult<CcrProvider> {
-        let api_base_url = custom_url.unwrap_or_else(|| self.get_default_api_url());
-        let models = self.get_default_models();
-
-        let provider = CcrProvider::new(name, api_base_url, api_key, models, self.clone());
-
-        provider.validate()?;
-        Ok(provider)
-    }
-
-    /// 获取默认的API URL
-    #[allow(dead_code)]
-    fn get_default_api_url(&self) -> String {
-        match self {
-            ProviderType::OpenAI => "https://api.openai.com/v1/chat/completions".to_string(),
-            ProviderType::OpenRouter => "https://openrouter.ai/api/v1/chat/completions".to_string(),
-            ProviderType::DeepSeek => "https://api.deepseek.com/chat/completions".to_string(),
-            ProviderType::Gemini => {
-                "https://generativelanguage.googleapis.com/v1beta/models/".to_string()
-            }
-            ProviderType::Qwen => {
-                "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions".to_string()
-            }
-            ProviderType::Custom => "https://your-api-url/v1/chat/completions".to_string(),
-        }
-    }
-
     /// 获取默认的模型列表
     pub fn get_default_models(&self) -> Vec<String> {
         match self {
@@ -438,17 +336,6 @@ impl ProviderType {
             ],
             ProviderType::Custom => vec!["custom-model".to_string()],
         }
-    }
-
-    /// 获取推荐的默认路由
-    #[allow(dead_code)]
-    pub fn get_recommended_default_route(&self, provider_name: &str) -> String {
-        let models = self.get_default_models();
-        let default_model = models
-            .first()
-            .map(|s| s.as_str())
-            .unwrap_or("default-model");
-        format!("{provider_name},{default_model}")
     }
 
     /// 获取provider类型的配置提示信息
@@ -488,8 +375,6 @@ impl ProviderType {
         }
     }
 }
-
-// ==================== Claude Code Router 配置文件结构 ====================
 
 /// 完整的 claude-code-router 配置文件结构
 #[allow(non_snake_case)]
@@ -783,12 +668,6 @@ impl Config {
         Ok(())
     }
 
-    /// 添加新的Direct配置（保持向后兼容）
-    #[allow(dead_code)]
-    pub fn add_profile(&mut self, name: String, profile: Profile) -> AppResult<()> {
-        self.add_direct_profile(name, profile)
-    }
-
     /// 添加Direct配置
     pub fn add_direct_profile(&mut self, name: String, profile: DirectProfile) -> AppResult<()> {
         if self.groups.direct.contains_key(&name) {
@@ -825,15 +704,6 @@ impl Config {
         Err(AppError::ProfileNotFound(name.to_string()))
     }
 
-    /// 从指定组删除配置
-    #[allow(dead_code)]
-    pub fn remove_profile_from_group(&mut self, group: &str, name: &str) -> AppResult<()> {
-        match group {
-            "direct" => self.remove_direct_profile(name),
-            _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
-        }
-    }
-
     /// 删除Direct配置
     pub fn remove_direct_profile(&mut self, name: &str) -> AppResult<()> {
         if !self.groups.direct.contains_key(name) {
@@ -852,39 +722,12 @@ impl Config {
         Ok(())
     }
 
-    /// 获取指定配置（向后兼容，优先从direct组查找）
-    pub fn get_profile(&self, name: &str) -> AppResult<&Profile> {
-        self.get_direct_profile(name)
-    }
-
     /// 获取Direct配置
     pub fn get_direct_profile(&self, name: &str) -> AppResult<&DirectProfile> {
         self.groups
             .direct
             .get(name)
             .ok_or_else(|| AppError::ProfileNotFound(name.to_string()))
-    }
-
-    /// 从指定组获取配置
-    #[allow(dead_code)]
-    pub fn get_profile_from_group(&self, group: &str, name: &str) -> AppResult<(&str, String)> {
-        match group {
-            "direct" => {
-                if self.groups.direct.contains_key(name) {
-                    Ok(("direct", name.to_string()))
-                } else {
-                    Err(AppError::ProfileNotFound(name.to_string()))
-                }
-            }
-            _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
-        }
-    }
-
-    /// 获取默认配置（向后兼容，优先返回direct组）
-    pub fn get_default_profile(&self) -> AppResult<(&String, &Profile)> {
-        let (default_name, _) = self.get_default_direct_profile()?;
-        let profile = self.get_direct_profile(default_name)?;
-        Ok((default_name, profile))
     }
 
     /// 获取默认的Direct配置
@@ -897,18 +740,6 @@ impl Config {
 
         let profile = self.get_direct_profile(default_name)?;
         Ok((default_name, profile))
-    }
-
-    /// 获取指定组的默认配置
-    #[allow(dead_code)]
-    pub fn get_default_profile_from_group(&self, group: &str) -> AppResult<(String, String)> {
-        match group {
-            "direct" => {
-                let (name, _) = self.get_default_direct_profile()?;
-                Ok(("direct".to_string(), name.clone()))
-            }
-            _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
-        }
     }
 
     /// 设置默认配置（向后兼容，优先设置direct组）
@@ -937,21 +768,6 @@ impl Config {
         Ok(())
     }
 
-    /// 从指定组设置默认配置
-    #[allow(dead_code)]
-    pub fn set_default_from_group(&mut self, group: &str, name: &str) -> AppResult<()> {
-        match group {
-            "direct" => self.set_default_direct(name),
-            _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
-        }
-    }
-
-    /// 列出所有配置（向后兼容，只返回direct组）
-    #[allow(dead_code)]
-    pub fn list_profiles(&self) -> Vec<(String, &Profile, bool)> {
-        self.list_direct_profiles()
-    }
-
     /// 列出Direct配置
     pub fn list_direct_profiles(&self) -> Vec<(String, &DirectProfile, bool)> {
         let default_name = self
@@ -967,40 +783,6 @@ impl Config {
                 (name.clone(), profile, is_default)
             })
             .collect()
-    }
-
-    /// 列出指定组的配置
-    #[allow(dead_code)]
-    pub fn list_profiles_from_group(&self, group: &str) -> AppResult<Vec<(String, bool)>> {
-        match group {
-            "direct" => {
-                let profiles = self.list_direct_profiles();
-                Ok(profiles
-                    .into_iter()
-                    .map(|(name, _, is_default)| (name, is_default))
-                    .collect())
-            }
-            _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
-        }
-    }
-
-    /// 列出所有组的配置
-    #[allow(dead_code)]
-    pub fn list_all_profiles(&self) -> Vec<(String, String, bool)> {
-        let mut all_profiles = Vec::new();
-
-        // 添加direct组配置
-        for (name, is_default) in self.list_profiles_from_group("direct").unwrap_or_default() {
-            all_profiles.push(("direct".to_string(), name, is_default));
-        }
-
-        all_profiles
-    }
-
-    /// 验证配置有效性（向后兼容）
-    #[allow(dead_code)]
-    fn validate_profile(&self, profile: &Profile) -> AppResult<()> {
-        self.validate_direct_profile(profile)
     }
 
     /// 验证Direct配置有效性
@@ -1025,8 +807,6 @@ impl Config {
 
         Ok(())
     }
-
-    // ==================== Router Profile 管理方法 ====================
 
     /// 添加 Router Profile
     pub fn add_router_profile(&mut self, name: String, profile: RouterProfile) -> AppResult<()> {
@@ -1080,18 +860,6 @@ impl Config {
             .ok_or_else(|| AppError::ProfileNotFound(name.to_string()))
     }
 
-    /// 更新 Router Profile
-    #[allow(dead_code)]
-    pub fn update_router_profile(&mut self, name: String, profile: RouterProfile) -> AppResult<()> {
-        if !self.groups.router.contains_key(&name) {
-            return Err(AppError::ProfileNotFound(name.to_string()));
-        }
-
-        profile.validate()?;
-        self.groups.router.insert(name, profile);
-        Ok(())
-    }
-
     /// 获取默认的 Router Profile
     pub fn get_default_router_profile(&self) -> AppResult<(&String, &RouterProfile)> {
         let default_name = self
@@ -1137,12 +905,6 @@ impl Config {
             })
             .collect()
     }
-
-    /// 验证 Router Profile 配置有效性
-    #[allow(dead_code)]
-    fn validate_router_profile(&self, profile: &RouterProfile) -> AppResult<()> {
-        profile.validate()
-    }
 }
 
 #[cfg(test)]
@@ -1180,7 +942,7 @@ mod tests {
         let mut config = Config::default();
         let profile = create_test_profile();
 
-        let result = config.add_profile("test".to_string(), profile);
+        let result = config.add_direct_profile("test".to_string(), profile);
         assert!(result.is_ok());
         assert_eq!(config.groups.direct.len(), 1);
         assert_eq!(
@@ -1190,28 +952,13 @@ mod tests {
     }
 
     #[test]
-    fn test_add_duplicate_profile() {
-        let mut config = Config::default();
-        let profile = create_test_profile();
-
-        config
-            .add_profile("test".to_string(), profile.clone())
-            .unwrap();
-        let result = config.add_profile("test".to_string(), profile);
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            AppError::Config(msg) => assert!(msg.contains("已存在")),
-            _ => panic!("Expected Config error"),
-        }
-    }
-
-    #[test]
     fn test_remove_profile() {
         let mut config = Config::default();
         let profile = create_test_profile();
 
-        config.add_profile("test".to_string(), profile).unwrap();
+        config
+            .add_direct_profile("test".to_string(), profile)
+            .unwrap();
         assert_eq!(config.groups.direct.len(), 1);
 
         let result = config.remove_profile("test");
@@ -1221,25 +968,15 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_nonexistent_profile() {
-        let mut config = Config::default();
-        let result = config.remove_profile("nonexistent");
-
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            AppError::ProfileNotFound(name) => assert_eq!(name, "nonexistent"),
-            _ => panic!("Expected ProfileNotFound error"),
-        }
-    }
-
-    #[test]
     fn test_get_profile() {
         let mut config = Config::default();
         let profile = create_test_profile();
 
-        config.add_profile("test".to_string(), profile).unwrap();
+        config
+            .add_direct_profile("test".to_string(), profile)
+            .unwrap();
 
-        let result = config.get_profile("test");
+        let result = config.get_direct_profile("test");
         assert!(result.is_ok());
         let retrieved_profile = result.unwrap();
         assert_eq!(retrieved_profile.anthropic_auth_token, "test-token-123");
@@ -1250,9 +987,11 @@ mod tests {
         let mut config = Config::default();
         let profile = create_test_profile();
 
-        config.add_profile("test".to_string(), profile).unwrap();
         config
-            .add_profile("test2".to_string(), create_test_profile())
+            .add_direct_profile("test".to_string(), profile)
+            .unwrap();
+        config
+            .add_direct_profile("test2".to_string(), create_test_profile())
             .unwrap();
 
         let result = config.set_default("test2");
@@ -1264,46 +1003,21 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_profile_empty_token() {
-        let config = Config::default();
-        let mut profile = create_test_profile();
-        profile.anthropic_auth_token = "".to_string();
-
-        let result = config.validate_profile(&profile);
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            AppError::InvalidConfig(msg) => assert!(msg.contains("认证令牌不能为空")),
-            _ => panic!("Expected InvalidConfig error"),
-        }
-    }
-
-    #[test]
-    fn test_validate_profile_invalid_url() {
-        let config = Config::default();
-        let mut profile = create_test_profile();
-        profile.anthropic_base_url = "invalid-url".to_string();
-
-        let result = config.validate_profile(&profile);
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            AppError::InvalidConfig(msg) => assert!(msg.contains("基础URL格式无效")),
-            _ => panic!("Expected InvalidConfig error"),
-        }
-    }
-
-    #[test]
     fn test_list_profiles() {
         let mut config = Config::default();
         let profile1 = create_test_profile();
         let profile2 = create_test_profile();
 
-        config.add_profile("test1".to_string(), profile1).unwrap();
-        config.add_profile("test2".to_string(), profile2).unwrap();
+        config
+            .add_direct_profile("test1".to_string(), profile1)
+            .unwrap();
+        config
+            .add_direct_profile("test2".to_string(), profile2)
+            .unwrap();
 
-        let profiles = config.list_profiles();
+        let profiles = config.list_direct_profiles();
         assert_eq!(profiles.len(), 2);
 
-        // 检查默认配置标记
         let default_count = profiles
             .iter()
             .filter(|(_, _, is_default)| *is_default)

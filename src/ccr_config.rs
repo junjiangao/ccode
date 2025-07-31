@@ -107,8 +107,6 @@ impl CcrConfigManager {
         self.config_path.exists()
     }
 
-    // ==================== Provider 管理方法 ====================
-
     /// 列出所有 Providers
     pub fn list_providers(&self) -> AppResult<Vec<CcrProvider>> {
         let config = self.load_config()?;
@@ -154,8 +152,6 @@ impl CcrConfigManager {
         Ok(config.get_provider(name).is_some())
     }
 
-    // ==================== Router 管理方法 ====================
-
     /// 获取当前 Router 配置
     pub fn get_current_router(&self) -> AppResult<CcrRouter> {
         let config = self.load_config()?;
@@ -186,38 +182,6 @@ impl CcrConfigManager {
         self.save_config(&config)?;
 
         println!("✅ 已应用 Router Profile '{}'", router_profile.name);
-        Ok(())
-    }
-
-    /// 设置基础配置选项
-    #[allow(dead_code)]
-    pub fn set_basic_options(
-        &self,
-        apikey: Option<String>,
-        proxy_url: Option<String>,
-        log: Option<bool>,
-        timeout_ms: Option<u32>,
-        host: Option<String>,
-    ) -> AppResult<()> {
-        let mut config = self.load_config()?;
-
-        if let Some(apikey) = apikey {
-            config.APIKEY = Some(apikey);
-        }
-        if let Some(proxy_url) = proxy_url {
-            config.PROXY_URL = Some(proxy_url);
-        }
-        if let Some(log) = log {
-            config.LOG = Some(log);
-        }
-        if let Some(timeout_ms) = timeout_ms {
-            config.API_TIMEOUT_MS = Some(timeout_ms);
-        }
-        if let Some(host) = host {
-            config.HOST = Some(host);
-        }
-
-        self.save_config(&config)?;
         Ok(())
     }
 
@@ -258,18 +222,14 @@ impl CcrConfigManager {
         Ok(errors)
     }
 
-    // ==================== 智能配置管理方法 ====================
-
     /// 确保存在可用的Router Profile配置
     /// 优先级：本地配置 → CCR配置自动生成 → 提示创建Provider
     pub fn ensure_router_profile_exists(&self) -> AppResult<RouterProfileStatus> {
-        // 1. 检查本地是否已有Router Profile配置
         let local_config = Config::load().unwrap_or_default();
         if !local_config.groups.router.is_empty() {
             return Ok(RouterProfileStatus::LocalExists);
         }
 
-        // 2. 检查claude-code-router配置是否存在且有Provider
         if !self.config_exists() {
             return Ok(RouterProfileStatus::NeedCreateProvider);
         }
