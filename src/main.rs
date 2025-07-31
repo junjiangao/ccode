@@ -1,3 +1,4 @@
+mod ccr_config;
 mod ccr_manager;
 mod commands;
 mod config;
@@ -94,6 +95,13 @@ enum Commands {
         #[command(subcommand)]
         ccr_cmd: CcrCommands,
     },
+
+    // Provider管理
+    /// Provider管理
+    Provider {
+        #[command(subcommand)]
+        provider_cmd: ProviderCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -108,6 +116,32 @@ enum CcrCommands {
     Status,
     /// 查看CCR服务日志
     Logs,
+}
+
+#[derive(Subcommand)]
+enum ProviderCommands {
+    /// 列出所有Providers
+    List,
+    /// 添加新Provider
+    Add {
+        /// Provider名称
+        name: String,
+    },
+    /// 删除Provider
+    Remove {
+        /// Provider名称
+        name: String,
+    },
+    /// 显示Provider详情
+    Show {
+        /// Provider名称
+        name: String,
+    },
+    /// 编辑Provider
+    Edit {
+        /// Provider名称
+        name: String,
+    },
 }
 
 fn main() -> AppResult<()> {
@@ -135,6 +169,15 @@ fn main() -> AppResult<()> {
             CcrCommands::Restart => commands::cmd_ccr_restart(),
             CcrCommands::Status => commands::cmd_ccr_status(),
             CcrCommands::Logs => commands::cmd_ccr_logs(),
+        },
+
+        // Provider管理
+        Commands::Provider { provider_cmd } => match provider_cmd {
+            ProviderCommands::List => commands::cmd_provider_list(),
+            ProviderCommands::Add { name } => commands::cmd_provider_add(name),
+            ProviderCommands::Remove { name } => commands::cmd_provider_remove(name),
+            ProviderCommands::Show { name } => commands::cmd_provider_show(name),
+            ProviderCommands::Edit { name } => commands::cmd_provider_edit(name),
         },
     }
 }

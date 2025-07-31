@@ -1,9 +1,153 @@
+use crate::ccr_config::CcrConfigManager;
 use crate::ccr_manager::CcrManager;
-use crate::config::{CcrProfile, Config, Profile, ProviderType};
+use crate::config::{CcrProvider, CcrRouter, Config, Profile, ProviderType, RouterProfile};
 use crate::error::{AppError, AppResult};
 use chrono::Utc;
 use std::io::{self, Write};
 use std::process::Command;
+
+/// 为不同路由类型获取智能推荐
+fn get_route_recommendations(
+    route_key: &str,
+    providers: &[CcrProvider],
+) -> Vec<(String, &'static str)> {
+    let mut recommendations = Vec::new();
+
+    match route_key {
+        "background" => {
+            // 后台任务推荐快速、经济的模型
+            for provider in providers {
+                if let Some(provider_type) = &provider.provider_type {
+                    match provider_type {
+                        ProviderType::OpenAI => {
+                            if let Some(model) = provider
+                                .models
+                                .iter()
+                                .find(|m| m.contains("gpt-3.5") || m.contains("4o-mini"))
+                            {
+                                recommendations
+                                    .push((format!("{},{}", provider.name, model), "🚀 快速响应"));
+                            }
+                        }
+                        ProviderType::DeepSeek => {
+                            if let Some(model) = provider.models.first() {
+                                recommendations
+                                    .push((format!("{},{}", provider.name, model), "💰 高性价比"));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        "think" => {
+            // 思考任务推荐推理能力强的模型
+            for provider in providers {
+                if let Some(provider_type) = &provider.provider_type {
+                    match provider_type {
+                        ProviderType::DeepSeek => {
+                            if let Some(model) =
+                                provider.models.iter().find(|m| m.contains("reasoner"))
+                            {
+                                recommendations
+                                    .push((format!("{},{}", provider.name, model), "🧠 强大推理"));
+                            }
+                        }
+                        ProviderType::Qwen => {
+                            if let Some(model) = provider
+                                .models
+                                .iter()
+                                .find(|m| m.contains("Thinking") || m.contains("thinking"))
+                            {
+                                recommendations.push((
+                                    format!("{},{}", provider.name, model),
+                                    "🤔 思维链推理",
+                                ));
+                            }
+                        }
+                        ProviderType::OpenRouter => {
+                            if let Some(model) = provider
+                                .models
+                                .iter()
+                                .find(|m| m.contains("claude") || m.contains("o1"))
+                            {
+                                recommendations
+                                    .push((format!("{},{}", provider.name, model), "🔬 逻辑分析"));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        "longContext" => {
+            // 长上下文推荐支持大输入的模型
+            for provider in providers {
+                if let Some(provider_type) = &provider.provider_type {
+                    match provider_type {
+                        ProviderType::Qwen => {
+                            if let Some(model) = provider.models.first() {
+                                recommendations.push((
+                                    format!("{},{}", provider.name, model),
+                                    "📜 超长上下文",
+                                ));
+                            }
+                        }
+                        ProviderType::Gemini => {
+                            if let Some(model) = provider.models.iter().find(|m| m.contains("pro"))
+                            {
+                                recommendations.push((
+                                    format!("{},{}", provider.name, model),
+                                    "🌐 海量信息处理",
+                                ));
+                            }
+                        }
+                        ProviderType::OpenRouter => {
+                            if let Some(model) =
+                                provider.models.iter().find(|m| m.contains("claude"))
+                            {
+                                recommendations.push((
+                                    format!("{},{}", provider.name, model),
+                                    "📖 文档分析专家",
+                                ));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        "webSearch" => {
+            // 网络搜索推荐支持联网的模型
+            for provider in providers {
+                if let Some(provider_type) = &provider.provider_type {
+                    match provider_type {
+                        ProviderType::OpenRouter => {
+                            if let Some(model) = provider.models.first() {
+                                let route_with_online =
+                                    format!("{},{}:online", provider.name, model);
+                                recommendations.push((route_with_online, "🔍 实时搜索"));
+                            }
+                        }
+                        _ => {
+                            if let Some(model) = provider.models.first() {
+                                recommendations.push((
+                                    format!("{},{}", provider.name, model),
+                                    "🌐 基础网络查询",
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+
+    // 限制推荐数量避免过多选项
+    recommendations.truncate(3);
+    recommendations
+}
 
 /// 列出所有配置
 #[allow(dead_code)]
@@ -189,13 +333,13 @@ pub fn cmd_remove(name: String) -> AppResult<()> {
     println!("✅ 配置 '{name}' 已删除");
 
     // 如果还有其他配置，显示当前默认配置
-    if !config.groups.direct.is_empty() || !config.groups.ccr.is_empty() {
+    if !config.groups.direct.is_empty() || !config.groups.router.is_empty() {
         if let Some(default_profile) = &config.default_profile {
             if let Some(direct) = &default_profile.direct {
                 println!("🎯 当前默认Direct配置: {direct}");
             }
-            if let Some(ccr) = &default_profile.ccr {
-                println!("🎯 当前默认CCR配置: {ccr}");
+            if let Some(router) = &default_profile.router {
+                println!("🎯 当前默认Router配置: {router}");
             }
         }
     } else {
@@ -271,9 +415,9 @@ pub fn cmd_list_all() -> AppResult<()> {
     };
 
     let direct_profiles = config.list_direct_profiles();
-    let ccr_profiles = config.list_ccr_profiles();
+    let router_profiles = config.list_router_profiles();
 
-    if direct_profiles.is_empty() && ccr_profiles.is_empty() {
+    if direct_profiles.is_empty() && router_profiles.is_empty() {
         println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
         return Ok(());
     }
@@ -304,14 +448,25 @@ pub fn cmd_list_all() -> AppResult<()> {
         }
     }
 
-    // 显示CCR组配置
-    if !ccr_profiles.is_empty() {
-        println!("🚀 CCR组配置：");
-        for (name, profile, is_default) in ccr_profiles {
+    // 显示Router组配置
+    if !router_profiles.is_empty() {
+        println!("🎯 Router组配置：");
+        for (name, profile, is_default) in router_profiles {
             let default_marker = if is_default { " (默认)" } else { "" };
             println!("  🔧 {name}{default_marker}");
-            println!("     🔗 提供商数量: {}", profile.providers.len());
             println!("     🎯 默认路由: {}", profile.router.default);
+            if let Some(background) = &profile.router.background {
+                println!("     🔄 后台路由: {background}");
+            }
+            if let Some(think) = &profile.router.think {
+                println!("     💭 思考路由: {think}");
+            }
+            if let Some(long_context) = &profile.router.long_context {
+                println!("     📜 长上下文路由: {long_context}");
+            }
+            if let Some(web_search) = &profile.router.web_search {
+                println!("     🔍 网络搜索路由: {web_search}");
+            }
             if let Some(desc) = &profile.description {
                 println!("     📝 描述: {desc}");
             }
@@ -424,43 +579,55 @@ pub fn cmd_remove_direct(name: String) -> AppResult<()> {
 }
 
 // ==================== CCR组专用命令 ====================
+// 注意：旧的CCR Profile管理功能已被Provider + Router Profile架构取代
+// 下面的CCR快捷命令现在使用新架构实现
 
-/// 列出CCR配置
+/// 列出CCR配置（Router Profile）
 pub fn cmd_list_ccr() -> AppResult<()> {
-    let config = match Config::load() {
-        Ok(config) => config,
-        Err(AppError::ConfigNotFound) => {
-            println!("📋 暂无CCR配置，请使用 'ccode add-ccr <name>' 添加配置");
-            return Ok(());
-        }
-        Err(e) => return Err(e),
-    };
+    let manager = CcrConfigManager::new()?;
 
-    let profiles = config.list_ccr_profiles();
-
-    if profiles.is_empty() {
-        println!("📋 暂无CCR配置，请使用 'ccode add-ccr <name>' 添加配置");
-        return Ok(());
-    }
-
-    println!("📋 CCR组配置：");
+    println!("📋 CCR配置 (Router Profile) 列表：");
     println!();
 
-    for (name, profile, is_default) in profiles {
-        let default_marker = if is_default { " (默认)" } else { "" };
-        println!("🚀 {name}{default_marker}");
-        println!("   🔗 提供商数量: {}", profile.providers.len());
-        println!("   🎯 默认路由: {}", profile.router.default);
+    // 使用智能获取方法
+    let profiles = manager.get_router_profiles()?;
 
-        if !profile.providers.is_empty() {
-            println!("   📊 提供商:");
-            for provider in &profile.providers {
-                println!("     • {}: {} 个模型", provider.name, provider.models.len());
+    if profiles.is_empty() {
+        // 检查具体原因并给出相应提示
+        match manager.ensure_router_profile_exists()? {
+            crate::ccr_config::RouterProfileStatus::NeedCreateProvider => {
+                println!("❌ 暂无CCR配置");
+                println!();
+                println!("💡 要开始使用CCR，请按以下步骤操作:");
+                println!("   1. ccode provider add <name>     # 添加Provider");
+                println!("   2. ccode add-ccr <name>          # 添加CCR配置");
+                return Ok(());
+            }
+            _ => {
+                println!("❌ 暂无CCR配置");
+                println!("💡 使用 'ccode add-ccr <name>' 添加CCR配置");
+                return Ok(());
             }
         }
+    }
 
-        if let Some(timeout) = profile.api_timeout_ms {
-            println!("   ⏱️  超时: {timeout}ms");
+    // 显示Router Profile列表
+    for (name, profile, is_default) in profiles {
+        let default_marker = if is_default { " (默认)" } else { "" };
+        println!("🎯 {name}{default_marker}");
+        println!("   🚀 默认路由: {}", profile.router.default);
+
+        if let Some(background) = &profile.router.background {
+            println!("   🔄 后台路由: {background}");
+        }
+        if let Some(think) = &profile.router.think {
+            println!("   💭 思考路由: {think}");
+        }
+        if let Some(long_context) = &profile.router.long_context {
+            println!("   📜 长上下文路由: {long_context}");
+        }
+        if let Some(web_search) = &profile.router.web_search {
+            println!("   🔍 网络搜索路由: {web_search}");
         }
 
         if let Some(desc) = &profile.description {
@@ -470,107 +637,278 @@ pub fn cmd_list_ccr() -> AppResult<()> {
         if let Some(created) = &profile.created_at {
             println!("   📅 创建: {created}");
         }
+
         println!();
+    }
+
+    // 显示当前应用的路由配置
+    if manager.config_exists() {
+        println!("📊 当前应用的路由配置：");
+        let current_router = manager.get_current_router()?;
+        println!("🎯 默认: {}", current_router.default);
+        if let Some(background) = &current_router.background {
+            println!("🔄 后台: {background}");
+        }
+        if let Some(think) = &current_router.think {
+            println!("💭 思考: {think}");
+        }
+        if let Some(long_context) = &current_router.long_context {
+            println!("📜 长上下文: {long_context}");
+        }
+        if let Some(web_search) = &current_router.web_search {
+            println!("🔍 网络搜索: {web_search}");
+        }
+
+        // 显示Provider统计
+        if let Ok(providers) = manager.list_providers() {
+            println!();
+            println!("🔗 可用 Provider: {}", providers.len());
+        }
+    } else {
+        println!("⚠️  claude-code-router 配置文件不存在");
+        println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
     }
 
     Ok(())
 }
 
-/// 添加CCR配置（交互式，单provider模式）
+/// 添加CCR配置（Router Profile）
 pub fn cmd_add_ccr(name: String) -> AppResult<()> {
-    let mut config = Config::load().unwrap_or_default();
+    let manager = CcrConfigManager::new()?;
 
-    // 检查配置是否已存在
-    if config.groups.ccr.contains_key(&name) {
-        return Err(AppError::Config(format!("CCR配置 '{name}' 已存在")));
+    // 检查是否已存在同名Router Profile
+    let config = Config::load().unwrap_or_default();
+    if config.groups.router.contains_key(&name) {
+        return Err(AppError::Config(format!("Router Profile '{name}' 已存在")));
     }
 
-    println!("🚀 添加新CCR配置: {name}");
+    // 检查是否有可用的 Providers
+    if !manager.config_exists() {
+        return Err(AppError::Config(
+            "未找到 claude-code-router 配置文件，请先使用 'ccode provider add <name>' 添加 Provider".to_string()
+        ));
+    }
+
+    let providers = manager.list_providers()?;
+    if providers.is_empty() {
+        return Err(AppError::Config(
+            "暂无可用的 Provider，请先使用 'ccode provider add <name>' 添加 Provider".to_string(),
+        ));
+    }
+
+    println!("🎯 添加新的CCR配置 (Router Profile): {name}");
     println!();
 
-    // 选择provider类型
-    println!("📋 选择Provider类型:");
-    let provider_types = [
-        ProviderType::OpenAI,
-        ProviderType::OpenRouter,
-        ProviderType::DeepSeek,
-        ProviderType::Gemini,
-        ProviderType::Qwen,
-        ProviderType::Custom,
-    ];
-
-    for (index, provider_type) in provider_types.iter().enumerate() {
+    // 显示可用的 Providers
+    println!("📋 可用的 Providers:");
+    for (index, provider) in providers.iter().enumerate() {
         println!(
-            "  {}) {} ({})",
+            "  {}. {} [{}]",
             index + 1,
-            provider_type.display_name(),
-            provider_type.url_format_hint()
+            provider.name,
+            provider
+                .provider_type
+                .as_ref()
+                .map(|t| t.display_name())
+                .unwrap_or("未知类型")
+        );
+        println!("     📍 API URL: {}", provider.api_base_url);
+        println!("     🤖 模型列表 ({} 个):", provider.models.len());
+
+        // 显示所有模型，如果模型过多则分组显示
+        if provider.models.len() <= 8 {
+            for (model_idx, model) in provider.models.iter().enumerate() {
+                println!("        {}. {}", model_idx + 1, model);
+            }
+        } else {
+            // 显示前6个模型和最后2个模型
+            for (model_idx, model) in provider.models.iter().take(6).enumerate() {
+                println!("        {}. {}", model_idx + 1, model);
+            }
+            println!("        ... ({} 个模型)", provider.models.len() - 8);
+            for (model_idx, model) in provider
+                .models
+                .iter()
+                .skip(provider.models.len() - 2)
+                .enumerate()
+            {
+                println!(
+                    "        {}. {}",
+                    provider.models.len() - 2 + model_idx + 1,
+                    model
+                );
+            }
+        }
+
+        // 显示provider类型的特色功能提示
+        if let Some(provider_type) = &provider.provider_type {
+            let hints = provider_type.get_configuration_hints();
+            if !hints.is_empty() {
+                println!("     💡 特色功能:");
+                for hint in hints.iter().take(2) {
+                    // 只显示前2个提示避免过长
+                    println!("        {hint}");
+                }
+            }
+        }
+        println!();
+    }
+
+    // 配置默认路由
+    println!("🎯 配置默认路由 (格式: provider,model):");
+
+    // 提供智能推荐
+    if !providers.is_empty() {
+        println!("💡 智能推荐路由:");
+        let mut recommendations = Vec::new();
+
+        for provider in &providers {
+            if let Some(first_model) = provider.models.first() {
+                let route = format!("{},{}", provider.name, first_model);
+                let reason = if let Some(provider_type) = &provider.provider_type {
+                    match provider_type {
+                        crate::config::ProviderType::OpenAI => "🔑 最稳定兼容",
+                        crate::config::ProviderType::OpenRouter => "🌐 多模型支持",
+                        crate::config::ProviderType::DeepSeek => "🧠 强大的推理能力",
+                        crate::config::ProviderType::Gemini => "🚀 Google最新技术",
+                        crate::config::ProviderType::Qwen => "🎨 中文优化",
+                        crate::config::ProviderType::Custom => "⚙️ 自定义配置",
+                    }
+                } else {
+                    "💻 通用类型"
+                };
+                recommendations.push((route, reason));
+            }
+        }
+
+        for (index, (route, reason)) in recommendations.iter().enumerate() {
+            println!("  {}. {} - {}", index + 1, route, reason);
+        }
+        println!();
+    }
+
+    print!("默认路由: ");
+    io::stdout().flush().unwrap();
+    let mut default_route = String::new();
+    io::stdin().read_line(&mut default_route)?;
+    let default_route = default_route.trim().to_string();
+
+    if default_route.is_empty() || !default_route.contains(',') {
+        return Err(AppError::InvalidConfig(
+            "默认路由格式无效，应为'provider,model'格式".to_string(),
+        ));
+    }
+
+    // 验证路由配置是否有效
+    let route_parts: Vec<&str> = default_route.split(',').collect();
+    if route_parts.len() != 2 {
+        return Err(AppError::InvalidConfig(
+            "路由格式错误，应为'provider,model'格式".to_string(),
+        ));
+    }
+
+    let (provider_name, model_name) = (route_parts[0].trim(), route_parts[1].trim());
+
+    // 验证provider和model是否存在
+    let provider_exists = providers.iter().any(|p| p.name == provider_name);
+    if !provider_exists {
+        return Err(AppError::InvalidConfig(format!(
+            "提供商 '{provider_name}' 不存在"
+        )));
+    }
+
+    let model_exists = providers
+        .iter()
+        .find(|p| p.name == provider_name)
+        .map(|p| p.models.contains(&model_name.to_string()))
+        .unwrap_or(false);
+
+    if !model_exists {
+        println!(
+            "⚠️  警告: 模型 '{model_name}' 在提供商 '{provider_name}' 中不存在，请确认模型名称是否正确"
         );
     }
 
-    print!("请选择 [1-6]: ");
-    io::stdout().flush().unwrap();
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice)?;
-    let choice = choice.trim();
+    // 创建基础 Router 配置
+    let mut router = CcrRouter::new(default_route);
 
-    let provider_type = match choice {
-        "1" => ProviderType::OpenAI,
-        "2" => ProviderType::OpenRouter,
-        "3" => ProviderType::DeepSeek,
-        "4" => ProviderType::Gemini,
-        "5" => ProviderType::Qwen,
-        "6" => ProviderType::Custom,
-        _ => {
-            println!("❌ 无效选择，默认使用OpenAI兼容类型");
-            ProviderType::OpenAI
+    // 可选路由配置
+    let optional_routes = [
+        ("background", "🔄 后台任务路由"),
+        ("think", "💭 思考任务路由"),
+        ("longContext", "📜 长上下文路由"),
+        ("webSearch", "🔍 网络搜索路由"),
+    ];
+
+    for (route_key, route_desc) in optional_routes.iter() {
+        println!();
+        println!("{route_desc}:");
+
+        // 为不同路由类型提供智能推荐
+        let route_recommendations = get_route_recommendations(route_key, &providers);
+        if !route_recommendations.is_empty() {
+            println!("💡 推荐选项:");
+            for (index, (route, reason)) in route_recommendations.iter().enumerate() {
+                println!("  {}. {} - {}", index + 1, route, reason);
+            }
         }
-    };
 
-    println!();
-    println!("🔧 配置 {} 类型的Provider:", provider_type.display_name());
+        print!("配置 {route_desc} (直接回车跳过): ");
+        io::stdout().flush().unwrap();
+        let mut route_input = String::new();
+        io::stdin().read_line(&mut route_input)?;
+        let route_input = route_input.trim();
 
-    // 显示配置提示
-    for hint in provider_type.get_configuration_hints() {
-        println!("  {hint}");
+        if !route_input.is_empty() {
+            if !route_input.contains(',') {
+                println!("⚠️  路由格式应为'provider,model'，跳过此设置");
+                continue;
+            }
+
+            // 验证路由配置
+            let parts: Vec<&str> = route_input.split(',').collect();
+            if parts.len() == 2 {
+                let (p_name, m_name) = (parts[0].trim(), parts[1].trim());
+                if !providers.iter().any(|p| p.name == p_name) {
+                    println!("⚠️  警告: 提供商 '{p_name}' 不存在");
+                } else if !providers
+                    .iter()
+                    .any(|p| p.name == p_name && p.models.contains(&m_name.to_string()))
+                {
+                    println!("⚠️  警告: 模型 '{m_name}' 在提供商 '{p_name}' 中不存在");
+                }
+            }
+
+            match *route_key {
+                "background" => router.background = Some(route_input.to_string()),
+                "think" => router.think = Some(route_input.to_string()),
+                "longContext" => router.long_context = Some(route_input.to_string()),
+                "webSearch" => router.web_search = Some(route_input.to_string()),
+                _ => {}
+            }
+        }
     }
-    println!();
 
-    // 获取Provider名称
-    print!("📝 请输入Provider名称 (默认: {name}): ");
+    // 配置长上下文阈值
+    print!("⚖️  长上下文阈值 (默认: 60000): ");
     io::stdout().flush().unwrap();
-    let mut provider_name = String::new();
-    io::stdin().read_line(&mut provider_name)?;
-    let provider_name = provider_name.trim();
-    let provider_name = if provider_name.is_empty() {
-        name.clone()
-    } else {
-        provider_name.to_string()
-    };
+    let mut threshold_input = String::new();
+    io::stdin().read_line(&mut threshold_input)?;
+    let threshold_input = threshold_input.trim();
 
-    // 获取API密钥
-    print!("🔑 请输入API Key: ");
-    io::stdout().flush().unwrap();
-    let mut api_key = String::new();
-    io::stdin().read_line(&mut api_key)?;
-    let api_key = api_key.trim().to_string();
+    if !threshold_input.is_empty() {
+        match threshold_input.parse::<u32>() {
+            Ok(threshold) => {
+                router.long_context_threshold = Some(threshold);
+            }
+            Err(_) => {
+                println!("⚠️  无效的阈值格式，使用默认值 60000");
+            }
+        }
+    }
 
-    // 获取API URL（可选）
-    println!("📍 API URL配置:");
-    println!("  默认: {}", provider_type.url_format_hint());
-    print!("  自定义URL (直接回车使用默认): ");
-    io::stdout().flush().unwrap();
-    let mut api_url = String::new();
-    io::stdin().read_line(&mut api_url)?;
-    let api_url = api_url.trim();
-    let custom_url = if api_url.is_empty() {
-        None
-    } else {
-        Some(api_url.to_string())
-    };
-
-    // 获取描述（可选）
-    print!("📝 请输入描述 (可选，直接回车跳过): ");
+    // 获取描述
+    print!("📝 描述 (可选): ");
     io::stdout().flush().unwrap();
     let mut description = String::new();
     io::stdin().read_line(&mut description)?;
@@ -581,155 +919,212 @@ pub fn cmd_add_ccr(name: String) -> AppResult<()> {
         Some(description.to_string())
     };
 
-    println!();
-    println!("🔧 正在创建CCR配置...");
+    // 创建 Router Profile
+    let mut router_profile = RouterProfile::new(name.clone(), router, description)?;
+    router_profile.created_at = Some(Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
 
-    // 使用模板创建CCR配置
-    match CcrProfile::create_template(
-        provider_type.clone(),
-        provider_name.clone(),
-        api_key,
-        custom_url,
-        description,
-    ) {
-        Ok(mut ccr_profile) => {
-            // 设置创建时间
-            ccr_profile.created_at = Some(Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string());
+    // 添加到本地配置
+    manager.add_router_profile(name.clone(), router_profile)?;
 
-            // 添加并保存配置
-            config.add_ccr_profile(name.clone(), ccr_profile)?;
-            config.save()?;
+    println!("✅ CCR配置 (Router Profile) '{name}' 添加成功！");
 
-            println!();
-            println!("✅ CCR配置 '{name}' 添加成功！");
-            println!(
-                "🔗 Provider: {} ({})",
-                provider_name,
-                provider_type.display_name()
-            );
-
-            if config.groups.ccr.len() == 1 {
-                println!("🎯 已自动设为默认CCR配置");
-            }
-
-            // 询问是否立即生成CCR配置文件
-            print!("📄 是否立即生成claude-code-router配置文件? (y/N): ");
-            io::stdout().flush().unwrap();
-            let mut generate_config = String::new();
-            io::stdin().read_line(&mut generate_config)?;
-
-            if generate_config.trim().to_lowercase() == "y" {
-                let rt = tokio::runtime::Runtime::new()?;
-                rt.block_on(async {
-                    let manager = CcrManager::new()?;
-                    if let Ok(profile) = config.get_ccr_profile(&name) {
-                        manager.generate_ccr_config(profile)?;
-                        println!("✅ claude-code-router配置文件已生成");
-                    }
-                    Ok::<(), AppError>(())
-                })?;
-            }
-        }
-        Err(e) => {
-            return Err(AppError::Config(format!("创建CCR配置失败: {e}")));
-        }
+    // 检查是否是第一个Router Profile
+    let updated_config = Config::load()?;
+    if updated_config.groups.router.len() == 1 {
+        println!("🎯 已自动设为默认CCR配置");
     }
 
     Ok(())
 }
 
-/// 设置默认CCR配置
+/// 使用CCR配置（激活Router Profile）
 pub fn cmd_use_ccr(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
-    config.set_default_ccr(&name)?;
-    config.save()?;
-    println!("✅ 已将 '{name}' 设为默认CCR配置");
+    let manager = CcrConfigManager::new()?;
+
+    println!("🎯 激活CCR配置: {name}");
+    println!();
+
+    // 尝试获取指定的Router Profile（支持智能生成）
+    let router_profile = manager.get_router_profile(&name)?;
+
+    // 显示要激活的配置信息
+    println!("📋 配置信息:");
+    println!("   🚀 默认路由: {}", router_profile.router.default);
+    if let Some(background) = &router_profile.router.background {
+        println!("   🔄 后台路由: {background}");
+    }
+    if let Some(think) = &router_profile.router.think {
+        println!("   💭 思考路由: {think}");
+    }
+    if let Some(long_context) = &router_profile.router.long_context {
+        println!("   📜 长上下文路由: {long_context}");
+    }
+    if let Some(web_search) = &router_profile.router.web_search {
+        println!("   🔍 网络搜索路由: {web_search}");
+    }
+    println!();
+
+    // 验证Router配置中的Provider引用
+    if manager.config_exists() {
+        let validation_errors = manager.validate_router_references()?;
+        if !validation_errors.is_empty() {
+            println!("⚠️  发现配置问题:");
+            for error in &validation_errors {
+                println!("   • {error}");
+            }
+            print!("是否仍要继续激活此配置？某些路由可能无法工作 (y/N): ");
+            io::stdout().flush().unwrap();
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+
+            if input.trim().to_lowercase() != "y" {
+                println!("❌ 已取消激活");
+                println!("💡 请使用 'ccode provider add <name>' 添加缺失的 Provider");
+                return Ok(());
+            }
+        }
+    }
+
+    // 使用CcrConfigManager的集成方法进行激活和同步
+    manager.use_router_profile(&name)?;
+
+    println!("✅ 已激活CCR配置 '{name}' 并同步到 claude-code-router");
+    println!("🎯 默认路由: {}", router_profile.router.default);
+
     Ok(())
 }
 
-/// 运行CCR配置（支持智能配置检测）
+/// 运行CCR配置（使用Router Profile架构）
 pub fn cmd_run_ccr(name: Option<String>) -> AppResult<()> {
+    println!("🚀 启动CCR配置...");
+    println!("💡 使用Provider + Router Profile架构");
+    println!();
+
+    // 重定向到现有的router运行逻辑，但保持CCR特色
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
-        let mut config = Config::load().unwrap_or_default();
+        let config = Config::load().unwrap_or_default();
+        let ccr_manager = CcrConfigManager::new()?;
 
-        // 智能配置检测：如果CCR配置为空，尝试从claude-code-router导入
-        if config.groups.ccr.is_empty() {
-            let manager = CcrManager::new()?;
-            let is_ccr_config_empty = manager.is_ccr_config_empty().await?;
+        // 检查是否有 Router Profile 配置
+        if config.groups.router.is_empty() {
+            println!("❌ 暂无 Router Profile 配置");
 
-            if !is_ccr_config_empty {
-                println!("🔍 检测到ccode CCR配置为空，但claude-code-router配置文件存在");
-                print!("📥 是否自动导入claude-code-router配置？(y/N): ");
-                io::stdout().flush().unwrap();
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-
-                if input.trim().to_lowercase() == "y" {
-                    println!("📥 正在导入配置...");
-                    match manager.import_from_ccr_config().await? {
-                        Some(message) => {
-                            println!("✅ {message}");
-                            // 重新加载配置
-                            config = Config::load()?;
-                        }
-                        None => {
-                            println!("⚠️  导入失败或配置为空");
-                        }
-                    }
-                }
+            // 检查是否有可用的 Providers
+            if !ccr_manager.config_exists() {
+                println!("💡 请先使用以下步骤配置:");
+                println!("   1. ccode provider add <name>  # 添加 Provider");
+                println!("   2. ccode router add <name>    # 添加 Router Profile");
+                return Ok(());
             }
-        }
 
-        // 如果仍然没有CCR配置，提示用户
-        if config.groups.ccr.is_empty() {
-            println!("❌ 暂无CCR配置，请使用 'ccode add-ccr <name>' 添加配置");
+            let providers = ccr_manager.list_providers()?;
+            if providers.is_empty() {
+                println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
+                return Ok(());
+            }
+
+            println!(
+                "💡 已有 {} 个 Provider，请使用 'ccode router add <name>' 添加 Router Profile",
+                providers.len()
+            );
             return Ok(());
         }
 
-        let (profile_name, profile) = match name {
+        // 获取要使用的 Router Profile
+        let (profile_name, router_profile) = match name {
             Some(name) => {
-                let profile = config.get_ccr_profile(&name)?;
+                let profile = config.get_router_profile(&name)?;
                 (name, profile)
             }
-            None => {
-                let (default_name, profile) = config.get_default_ccr_profile()?;
-                (default_name.clone(), profile)
-            }
+            None => match config.get_default_router_profile() {
+                Ok((default_name, profile)) => (default_name.clone(), profile),
+                Err(_) => {
+                    println!("❌ 未设置默认 Router Profile");
+                    let profiles = config.list_router_profiles();
+                    if !profiles.is_empty() {
+                        println!("💡 可用的 Router Profile:");
+                        for (name, _, _) in profiles {
+                            println!("   • {name}");
+                        }
+                        println!("使用方法: ccode run-ccr <profile-name>");
+                        println!("或者设置默认: ccode router use <profile-name>");
+                    }
+                    return Ok(());
+                }
+            },
         };
 
-        println!("🚀 使用CCR配置 '{profile_name}' 启动 claude...");
+        println!("🚀 使用 Router Profile '{profile_name}' 启动 claude...");
+        println!("🎯 默认路由: {}", router_profile.router.default);
 
-        // 显示Provider信息
-        if let Some(provider) = profile.get_primary_provider() {
-            println!(
-                "🔗 Provider: {} ({})",
-                provider.name,
-                provider
-                    .provider_type
-                    .as_ref()
-                    .map_or("未知类型", |t| t.display_name())
-            );
-            println!("📊 模型数量: {}", provider.models.len());
-        } else {
-            println!("🔗 提供商数量: {}", profile.providers.len());
+        // 显示路由配置信息
+        if let Some(background) = &router_profile.router.background {
+            println!("🔄 后台路由: {background}");
         }
-
-        println!("🎯 默认路由: {}", profile.router.default);
+        if let Some(think) = &router_profile.router.think {
+            println!("💭 思考路由: {think}");
+        }
+        if let Some(long_context) = &router_profile.router.long_context {
+            println!("📜 长上下文路由: {long_context}");
+        }
+        if let Some(web_search) = &router_profile.router.web_search {
+            println!("🔍 网络搜索路由: {web_search}");
+        }
         println!();
 
-        // 创建CCR管理器
-        let mut manager = CcrManager::new()?;
+        // 检查 claude-code-router 配置文件是否存在且有 Provider
+        if !ccr_manager.config_exists() {
+            println!("❌ 未找到 claude-code-router 配置文件");
+            println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
+            return Ok(());
+        }
 
-        // 生成CCR配置文件
-        println!("📄 生成CCR配置文件...");
-        manager.generate_ccr_config(profile)?;
+        let providers = ccr_manager.list_providers()?;
+        if providers.is_empty() {
+            println!("❌ claude-code-router 配置文件中无 Provider");
+            println!("💡 请先使用 'ccode provider add <name>' 添加 Provider");
+            return Ok(());
+        }
+
+        println!("📊 可用 Provider: {}", providers.len());
+        for provider in &providers {
+            println!("   • {} ({} 个模型)", provider.name, provider.models.len());
+        }
+        println!();
+
+        // 验证 Router Profile 中的 Provider 引用
+        println!("🔍 验证路由配置...");
+        let validation_errors = ccr_manager.validate_router_references()?;
+        if !validation_errors.is_empty() {
+            println!("⚠️  发现配置问题:");
+            for error in &validation_errors {
+                println!("   • {error}");
+            }
+            print!("是否继续运行？某些路由可能无法工作 (y/N): ");
+            io::stdout().flush().unwrap();
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+
+            if input.trim().to_lowercase() != "y" {
+                println!("❌ 已取消运行");
+                println!("💡 请使用 'ccode provider add <name>' 添加缺失的 Provider");
+                return Ok(());
+            }
+        }
+
+        // 应用 Router Profile 到 claude-code-router 配置文件
+        println!("📄 应用 Router Profile 到配置文件...");
+        ccr_manager.apply_router_profile(router_profile)?;
+
+        // 创建 CCR 服务管理器
+        let mut service_manager = CcrManager::new()?;
 
         // 检查并启动CCR服务
         println!("📡 检查CCR服务状态...");
-        if !manager.is_service_running().await? {
+        if !service_manager.is_service_running().await? {
             println!("🚀 启动CCR服务...");
-            manager.start_service().await?;
+            service_manager.start_service().await?;
         } else {
             println!("✅ CCR服务已在运行");
         }
@@ -765,12 +1160,49 @@ pub fn cmd_run_ccr(name: Option<String>) -> AppResult<()> {
     Ok(())
 }
 
-/// 删除CCR配置
+/// 删除CCR配置（Router Profile）
 pub fn cmd_remove_ccr(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
+    let manager = CcrConfigManager::new()?;
+
+    // 检查Router Profile是否存在
+    let config = Config::load().unwrap_or_default();
+    if !config.groups.router.contains_key(&name) {
+        return Err(AppError::ProfileNotFound(name));
+    }
+
+    println!("🗑️  删除CCR配置: {name}");
+    println!();
+
+    // 显示要删除的配置信息
+    if let Ok(router_profile) = config.get_router_profile(&name) {
+        println!("📋 将要删除的配置:");
+        println!("   🚀 默认路由: {}", router_profile.router.default);
+        if let Some(background) = &router_profile.router.background {
+            println!("   🔄 后台路由: {background}");
+        }
+        if let Some(think) = &router_profile.router.think {
+            println!("   💭 思考路由: {think}");
+        }
+        if let Some(long_context) = &router_profile.router.long_context {
+            println!("   📜 长上下文路由: {long_context}");
+        }
+        if let Some(web_search) = &router_profile.router.web_search {
+            println!("   🔍 网络搜索路由: {web_search}");
+        }
+        println!();
+    }
+
+    // 如果是默认配置，警告用户
+    if let Some(default_profile) = &config.default_profile {
+        if default_profile.router.as_ref() == Some(&name) {
+            println!("⚠️  '{name}' 是当前的默认CCR配置");
+            println!("删除后需要重新设置默认配置");
+            println!();
+        }
+    }
 
     // 确认删除
-    print!("⚠️  确定要删除CCR配置 '{name}' 吗？(y/N): ");
+    print!("确定要删除CCR配置 '{name}' 吗？(y/N): ");
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
@@ -781,16 +1213,19 @@ pub fn cmd_remove_ccr(name: String) -> AppResult<()> {
         return Ok(());
     }
 
-    config.remove_ccr_profile(&name)?;
-    config.save()?;
+    // 删除Router Profile
+    manager.remove_router_profile(&name)?;
 
     println!("✅ CCR配置 '{name}' 已删除");
 
-    // 显示当前默认配置
-    if !config.groups.ccr.is_empty() {
-        if let Some(default_profile) = &config.default_profile {
-            if let Some(ccr) = &default_profile.ccr {
-                println!("🎯 当前默认CCR配置: {ccr}");
+    // 显示当前默认配置状态
+    let updated_config = Config::load().unwrap_or_default();
+    if !updated_config.groups.router.is_empty() {
+        if let Some(default_profile) = &updated_config.default_profile {
+            if let Some(router) = &default_profile.router {
+                println!("🎯 当前默认CCR配置: {router}");
+            } else {
+                println!("⚠️  无默认CCR配置，请使用 'ccode use-ccr <name>' 设置");
             }
         }
     } else {
@@ -859,528 +1294,312 @@ pub fn cmd_ccr_logs() -> AppResult<()> {
     Ok(())
 }
 
-// ==================== Router配置管理命令 ====================
+// ==================== Provider 管理命令 ====================
 
-/// 显示CCR配置的Router设置
-#[allow(dead_code)]
-pub fn cmd_ccr_router_show(name: Option<String>) -> AppResult<()> {
-    let config = Config::load()?;
+/// 列出所有 Providers
+pub fn cmd_provider_list() -> AppResult<()> {
+    let manager = CcrConfigManager::new()?;
 
-    let (profile_name, profile) = match name {
-        Some(name) => {
-            let profile = config.get_ccr_profile(&name)?;
-            (name, profile)
+    if !manager.config_exists() {
+        println!("📋 暂无 claude-code-router 配置文件");
+        println!("💡 使用 'ccode provider add <name>' 添加第一个 Provider");
+        return Ok(());
+    }
+
+    let providers = manager.list_providers()?;
+
+    if providers.is_empty() {
+        println!("📋 暂无 Provider 配置");
+        println!("💡 使用 'ccode provider add <name>' 添加 Provider");
+        return Ok(());
+    }
+
+    println!("📋 Provider 列表：");
+    println!();
+
+    for provider in providers {
+        println!("🔗 {}", provider.name);
+        println!("   📍 URL: {}", provider.api_base_url);
+        println!(
+            "   🔑 API Key: {}...",
+            &provider.api_key[..7.min(provider.api_key.len())]
+        );
+        println!("   📊 模型数量: {}", provider.models.len());
+
+        if let Some(provider_type) = &provider.provider_type {
+            println!("   🏷️  类型: {}", provider_type.display_name());
         }
-        None => {
-            let (default_name, profile) = config.get_default_ccr_profile()?;
-            (default_name.clone(), profile)
+
+        if provider.models.len() <= 5 {
+            println!("   🤖 模型: {}", provider.models.join(", "));
+        } else {
+            println!(
+                "   🤖 模型: {} 等 {} 个",
+                provider.models[..3].join(", "),
+                provider.models.len()
+            );
+        }
+
+        println!();
+    }
+
+    // 显示配置统计
+    let stats = manager.get_config_stats()?;
+    println!("📊 配置统计：");
+    print!("{}", stats.format_display());
+
+    Ok(())
+}
+
+/// 添加 Provider
+pub fn cmd_provider_add(name: String) -> AppResult<()> {
+    let manager = CcrConfigManager::new()?;
+
+    // 检查 Provider 是否已存在
+    if manager.provider_exists(&name)? {
+        return Err(AppError::Config(format!("Provider '{name}' 已存在")));
+    }
+
+    println!("🔗 添加新 Provider: {name}");
+    println!();
+
+    // 选择 Provider 类型
+    println!("📋 选择 Provider 类型:");
+    let provider_types = [
+        ProviderType::OpenAI,
+        ProviderType::OpenRouter,
+        ProviderType::DeepSeek,
+        ProviderType::Gemini,
+        ProviderType::Qwen,
+        ProviderType::Custom,
+    ];
+
+    for (index, provider_type) in provider_types.iter().enumerate() {
+        println!(
+            "  {}) {} ({})",
+            index + 1,
+            provider_type.display_name(),
+            provider_type.url_format_hint()
+        );
+    }
+
+    print!("请选择 [1-6]: ");
+    io::stdout().flush().unwrap();
+    let mut choice = String::new();
+    io::stdin().read_line(&mut choice)?;
+    let choice = choice.trim();
+
+    let provider_type = match choice {
+        "1" => ProviderType::OpenAI,
+        "2" => ProviderType::OpenRouter,
+        "3" => ProviderType::DeepSeek,
+        "4" => ProviderType::Gemini,
+        "5" => ProviderType::Qwen,
+        "6" => ProviderType::Custom,
+        _ => {
+            println!("❌ 无效选择，默认使用OpenAI兼容类型");
+            ProviderType::OpenAI
         }
     };
 
-    println!("🎯 CCR配置 '{profile_name}' 的Router设置:");
+    println!();
+    println!("🔧 配置 {} 类型的Provider:", provider_type.display_name());
+
+    // 显示配置提示
+    for hint in provider_type.get_configuration_hints() {
+        println!("  {hint}");
+    }
     println!();
 
-    // 显示所有路由配置
-    let routes = profile.router.get_all_routes();
-    for (route_name, route_value) in routes {
-        let icon = match route_name.as_str() {
-            "default" => "🎯",
-            "background" => "🔄",
-            "think" => "💭",
-            "longContext" => "📜",
-            "webSearch" => "🔍",
-            _ => "📌",
-        };
-        println!("  {icon} {route_name}: {route_value}");
-    }
-
-    // 显示长上下文阈值
-    if let Some(threshold) = profile.router.long_context_threshold {
-        println!("  ⚖️  longContextThreshold: {threshold}");
-    }
-
-    Ok(())
-}
-
-/// 设置CCR配置的Router选项
-#[allow(dead_code)]
-pub fn cmd_ccr_router_set(name: String, route_type: String, route_value: String) -> AppResult<()> {
-    let mut config = Config::load()?;
-
-    // 获取CCR配置
-    let profile = config.get_ccr_profile(&name)?;
-    let mut updated_profile = profile.clone();
-
-    // 验证路由值格式
-    if !route_value.is_empty() && !route_value.contains(',') {
-        return Err(AppError::Config(
-            "路由值格式无效，应为'provider,model'格式".to_string(),
-        ));
-    }
-
-    // 设置路由配置
-    match route_type.as_str() {
-        "default" => {
-            updated_profile.router.default = route_value;
-        }
-        "background" => {
-            updated_profile.router.background = if route_value.is_empty() {
-                None
-            } else {
-                Some(route_value)
-            };
-        }
-        "think" => {
-            updated_profile.router.think = if route_value.is_empty() {
-                None
-            } else {
-                Some(route_value)
-            };
-        }
-        "longContext" => {
-            updated_profile.router.long_context = if route_value.is_empty() {
-                None
-            } else {
-                Some(route_value)
-            };
-        }
-        "webSearch" => {
-            updated_profile.router.web_search = if route_value.is_empty() {
-                None
-            } else {
-                Some(route_value)
-            };
-        }
-        _ => {
-            return Err(AppError::Config(format!(
-                "未知的路由类型: {route_type}。支持的类型: default, background, think, longContext, webSearch"
-            )));
-        }
-    }
-
-    // 验证更新后的配置
-    updated_profile.validate()?;
-
-    // 更新配置
-    config.groups.ccr.insert(name.clone(), updated_profile);
-    config.save()?;
-
-    println!("✅ 已更新CCR配置 '{name}' 的 {route_type} 路由设置");
-
-    Ok(())
-}
-
-/// 设置长上下文阈值
-#[allow(dead_code)]
-pub fn cmd_ccr_router_set_threshold(name: String, threshold: u32) -> AppResult<()> {
-    let mut config = Config::load()?;
-
-    // 获取CCR配置
-    let profile = config.get_ccr_profile(&name)?;
-    let mut updated_profile = profile.clone();
-
-    // 设置阈值
-    updated_profile.router.long_context_threshold = Some(threshold);
-
-    // 验证更新后的配置
-    updated_profile.validate()?;
-
-    // 更新配置
-    config.groups.ccr.insert(name.clone(), updated_profile);
-    config.save()?;
-
-    println!("✅ 已设置CCR配置 '{name}' 的长上下文阈值为: {threshold}");
-
-    Ok(())
-}
-
-/// 重置CCR配置的Router设置为默认值
-#[allow(dead_code)]
-pub fn cmd_ccr_router_reset(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
-
-    // 获取CCR配置
-    let profile = config.get_ccr_profile(&name)?;
-    let mut updated_profile = profile.clone();
-
-    // 重置路由设置
-    updated_profile.router.apply_defaults();
-
-    // 验证更新后的配置
-    updated_profile.validate()?;
-
-    // 更新配置
-    config.groups.ccr.insert(name.clone(), updated_profile);
-    config.save()?;
-
-    println!("✅ 已重置CCR配置 '{name}' 的Router设置为默认值");
-
-    Ok(())
-}
-
-/// 交互式Router配置设置
-#[allow(dead_code)]
-pub fn cmd_ccr_router_config(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
-
-    // 获取CCR配置
-    let profile = config.get_ccr_profile(&name)?;
-    let mut updated_profile = profile.clone();
-
-    println!("🎯 配置CCR '{name}' 的Router设置");
-    println!();
-
-    // 显示当前Provider信息
-    if let Some(provider) = updated_profile.get_primary_provider() {
-        println!("📊 当前Provider信息:");
-        println!("  名称: {}", provider.name);
-        println!("  模型: {}", provider.models.join(", "));
-        println!();
-    }
-
-    // 交互式设置各路由
-    let route_configs = [
-        ("default", "🎯 默认路由", true),
-        ("background", "🔄 后台任务路由", false),
-        ("think", "💭 思考任务路由", false),
-        ("longContext", "📜 长上下文路由", false),
-        ("webSearch", "🔍 网络搜索路由", false),
-    ];
-
-    for (route_key, route_desc, is_required) in route_configs.iter() {
-        let current_value = match *route_key {
-            "default" => Some(updated_profile.router.default.clone()),
-            "background" => updated_profile.router.background.clone(),
-            "think" => updated_profile.router.think.clone(),
-            "longContext" => updated_profile.router.long_context.clone(),
-            "webSearch" => updated_profile.router.web_search.clone(),
-            _ => None,
-        };
-
-        let current_display = current_value.unwrap_or_else(|| "未设置".to_string());
-
-        if *is_required {
-            print!("{route_desc} (当前: {current_display}): ");
-        } else {
-            print!("{route_desc} (当前: {current_display}, 直接回车跳过): ");
-        }
-
-        io::stdout().flush().unwrap();
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        let input = input.trim();
-
-        if !input.is_empty() {
-            // 验证格式
-            if !input.contains(',') {
-                println!("⚠️  路由格式应为'provider,model'，跳过此设置");
-                continue;
-            }
-
-            // 设置路由值
-            match *route_key {
-                "default" => updated_profile.router.default = input.to_string(),
-                "background" => updated_profile.router.background = Some(input.to_string()),
-                "think" => updated_profile.router.think = Some(input.to_string()),
-                "longContext" => updated_profile.router.long_context = Some(input.to_string()),
-                "webSearch" => updated_profile.router.web_search = Some(input.to_string()),
-                _ => {}
-            }
-        }
-    }
-
-    // 设置长上下文阈值
-    let current_threshold = updated_profile
-        .router
-        .long_context_threshold
-        .unwrap_or(60000);
-    print!("⚖️  长上下文阈值 (当前: {current_threshold}, 直接回车跳过): ");
+    // 获取 API 密钥
+    print!("🔑 请输入 API Key: ");
     io::stdout().flush().unwrap();
-    let mut threshold_input = String::new();
-    io::stdin().read_line(&mut threshold_input)?;
-    let threshold_input = threshold_input.trim();
+    let mut api_key = String::new();
+    io::stdin().read_line(&mut api_key)?;
+    let api_key = api_key.trim().to_string();
 
-    if !threshold_input.is_empty() {
-        match threshold_input.parse::<u32>() {
-            Ok(threshold) => {
-                updated_profile.router.long_context_threshold = Some(threshold);
-            }
-            Err(_) => {
-                println!("⚠️  无效的阈值格式，保持原值");
-            }
+    // 获取 API URL（可选）
+    println!("📍 API URL 配置:");
+    println!("  默认: {}", provider_type.url_format_hint());
+    print!("  自定义URL (直接回车使用默认): ");
+    io::stdout().flush().unwrap();
+    let mut api_url = String::new();
+    io::stdin().read_line(&mut api_url)?;
+    let api_url = api_url.trim();
+    let api_base_url = if api_url.is_empty() {
+        provider_type.url_format_hint().to_string()
+    } else {
+        api_url.to_string()
+    };
+
+    // 获取模型列表
+    println!("🤖 模型配置:");
+    println!(
+        "  默认模型: {}",
+        provider_type.get_default_models().join(", ")
+    );
+    print!("  自定义模型列表 (用逗号分隔，直接回车使用默认): ");
+    io::stdout().flush().unwrap();
+    let mut models_input = String::new();
+    io::stdin().read_line(&mut models_input)?;
+    let models_input = models_input.trim();
+    let models = if models_input.is_empty() {
+        provider_type.get_default_models()
+    } else {
+        models_input
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect()
+    };
+
+    println!();
+    println!("🔧 正在创建 Provider...");
+
+    // 创建 Provider
+    let provider = CcrProvider::new(
+        name.clone(),
+        api_base_url,
+        api_key,
+        models,
+        provider_type.clone(),
+    );
+
+    // 添加 Provider
+    manager.add_provider(provider)?;
+
+    println!("✅ Provider '{name}' 添加成功！");
+    println!("🔗 类型: {}", provider_type.display_name());
+
+    Ok(())
+}
+
+/// 删除 Provider
+pub fn cmd_provider_remove(name: String) -> AppResult<()> {
+    let manager = CcrConfigManager::new()?;
+
+    // 检查 Provider 是否存在
+    if !manager.provider_exists(&name)? {
+        return Err(AppError::Config(format!("Provider '{name}' 不存在")));
+    }
+
+    // 检查是否被 Router 引用
+    let validation_errors = manager.validate_router_references()?;
+    let is_referenced = validation_errors.iter().any(|error| error.contains(&name));
+
+    if is_referenced {
+        println!("⚠️  警告: Provider '{name}' 正被 Router 配置引用");
+        println!("删除后相关路由将失效，请确认是否继续");
+    }
+
+    // 确认删除
+    print!("⚠️  确定要删除 Provider '{name}' 吗？(y/N): ");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    let input = input.trim().to_lowercase();
+    if input != "y" && input != "yes" {
+        println!("❌ 取消删除");
+        return Ok(());
+    }
+
+    manager.remove_provider(&name)?;
+    println!("✅ Provider '{name}' 已删除");
+
+    // 如果有引用错误，提示用户检查 Router 配置
+    if is_referenced {
+        println!("💡 建议使用 'ccode router list' 检查相关路由配置");
+    }
+
+    Ok(())
+}
+
+/// 显示 Provider 详情
+pub fn cmd_provider_show(name: String) -> AppResult<()> {
+    let manager = CcrConfigManager::new()?;
+    let provider = manager.get_provider(&name)?;
+
+    println!("🔗 Provider: {}", provider.name);
+    println!();
+    println!("📍 API URL: {}", provider.api_base_url);
+    println!(
+        "🔑 API Key: {}...",
+        &provider.api_key[..7.min(provider.api_key.len())]
+    );
+
+    if let Some(provider_type) = &provider.provider_type {
+        println!("🏷️  类型: {}", provider_type.display_name());
+    }
+
+    println!("📊 模型数量: {}", provider.models.len());
+    println!("🤖 模型列表:");
+    for (index, model) in provider.models.iter().enumerate() {
+        println!("  {}. {}", index + 1, model);
+    }
+
+    if let Some(transformer) = &provider.transformer {
+        println!("🔄 Transformer 配置:");
+        println!("{}", serde_json::to_string_pretty(transformer)?);
+    }
+
+    Ok(())
+}
+
+/// 编辑 Provider
+pub fn cmd_provider_edit(name: String) -> AppResult<()> {
+    let manager = CcrConfigManager::new()?;
+    let mut provider = manager.get_provider(&name)?;
+
+    println!("✏️  编辑 Provider: {}", provider.name);
+    println!();
+
+    // 编辑 API Key
+    println!(
+        "🔑 当前 API Key: {}...",
+        &provider.api_key[..7.min(provider.api_key.len())]
+    );
+    print!("新 API Key (直接回车保持不变): ");
+    io::stdout().flush().unwrap();
+    let mut new_api_key = String::new();
+    io::stdin().read_line(&mut new_api_key)?;
+    let new_api_key = new_api_key.trim();
+    if !new_api_key.is_empty() {
+        provider.api_key = new_api_key.to_string();
+    }
+
+    // 编辑 API URL
+    println!("📍 当前 API URL: {}", provider.api_base_url);
+    print!("新 API URL (直接回车保持不变): ");
+    io::stdout().flush().unwrap();
+    let mut new_url = String::new();
+    io::stdin().read_line(&mut new_url)?;
+    let new_url = new_url.trim();
+    if !new_url.is_empty() {
+        provider.api_base_url = new_url.to_string();
+    }
+
+    // 编辑模型列表
+    println!("🤖 当前模型: {}", provider.models.join(", "));
+    print!("新模型列表 (用逗号分隔，直接回车保持不变): ");
+    io::stdout().flush().unwrap();
+    let mut new_models = String::new();
+    io::stdin().read_line(&mut new_models)?;
+    let new_models = new_models.trim();
+    if !new_models.is_empty() {
+        provider.models = new_models
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
+
+        // 重新生成 transformer
+        if let Some(provider_type) = &provider.provider_type {
+            provider.transformer = provider_type.generate_transformer(&provider.models);
         }
     }
 
-    // 验证配置
-    match updated_profile.validate() {
-        Ok(_) => {
-            // 更新配置
-            config.groups.ccr.insert(name.clone(), updated_profile);
-            config.save()?;
-
-            println!();
-            println!("✅ Router配置已更新成功！");
-
-            // 询问是否重新生成CCR配置文件
-            print!("📄 是否重新生成claude-code-router配置文件? (y/N): ");
-            io::stdout().flush().unwrap();
-            let mut generate_config = String::new();
-            io::stdin().read_line(&mut generate_config)?;
-
-            if generate_config.trim().to_lowercase() == "y" {
-                let rt = tokio::runtime::Runtime::new()?;
-                rt.block_on(async {
-                    let manager = CcrManager::new()?;
-                    if let Ok(profile) = config.get_ccr_profile(&name) {
-                        manager.generate_ccr_config(profile)?;
-                        println!("✅ claude-code-router配置文件已重新生成");
-                    }
-                    Ok::<(), AppError>(())
-                })?;
-            }
-        }
-        Err(e) => {
-            println!("❌ 配置验证失败: {e}");
-            println!("💡 请检查路由配置是否正确");
-        }
-    }
-
-    Ok(())
-}
-
-// ==================== 配置导入和备份管理命令 ====================
-
-/// 从claude-code-router配置文件导入CCR配置
-#[allow(dead_code)]
-pub fn cmd_ccr_import() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-
-        // 检查CCR配置是否为空
-        let is_empty = manager.is_ccr_config_empty().await?;
-
-        if !is_empty {
-            println!("⚠️  ccode CCR配置不为空，请手动进行配置迁移");
-            println!("💡 如需强制导入，请先删除现有CCR配置");
-            return Ok(());
-        }
-
-        println!("📥 正在从claude-code-router配置文件导入...");
-
-        match manager.import_from_ccr_config().await? {
-            Some(message) => {
-                println!("✅ {message}");
-                println!("💡 已将claude-code-router中的每个provider创建为独立的CCR配置");
-            }
-            None => {
-                println!("ℹ️  未找到有效的claude-code-router配置或配置为空");
-            }
-        }
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
-
-    Ok(())
-}
-
-/// 列出CCR配置文件备份
-#[allow(dead_code)]
-pub fn cmd_ccr_backup_list() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-        let backups = manager.list_backups()?;
-
-        if backups.is_empty() {
-            println!("📋 暂无备份文件");
-            return Ok(());
-        }
-
-        println!("📋 CCR配置文件备份列表:");
-        println!();
-
-        for (index, backup) in backups.iter().enumerate() {
-            // 从文件名提取时间戳
-            if let Some(timestamp_part) = backup
-                .strip_prefix("config_backup_")
-                .and_then(|s| s.strip_suffix(".json"))
-            {
-                // 解析时间戳格式: YYYYMMDD_HHMMSS
-                if timestamp_part.len() == 15 {
-                    let date_part = &timestamp_part[..8];
-                    let time_part = &timestamp_part[9..];
-
-                    if let (Ok(year), Ok(month), Ok(day)) = (
-                        date_part[..4].parse::<u32>(),
-                        date_part[4..6].parse::<u32>(),
-                        date_part[6..8].parse::<u32>(),
-                    ) {
-                        if let (Ok(hour), Ok(minute), Ok(second)) = (
-                            time_part[..2].parse::<u32>(),
-                            time_part[2..4].parse::<u32>(),
-                            time_part[4..6].parse::<u32>(),
-                        ) {
-                            println!(
-                                "  {}) {} ({}-{:02}-{:02} {:02}:{:02}:{:02})",
-                                index + 1,
-                                backup,
-                                year,
-                                month,
-                                day,
-                                hour,
-                                minute,
-                                second
-                            );
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            // 如果时间戳解析失败，就显示原文件名
-            println!("  {}) {}", index + 1, backup);
-        }
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
-
-    Ok(())
-}
-
-/// 创建CCR配置文件备份
-#[allow(dead_code)]
-pub fn cmd_ccr_backup_create() -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-
-        match manager.create_backup() {
-            Ok(backup_filename) => {
-                println!("✅ 备份创建成功: {backup_filename}");
-            }
-            Err(e) => {
-                println!("❌ 备份创建失败: {e}");
-            }
-        }
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
-
-    Ok(())
-}
-
-/// 从备份恢复CCR配置文件
-#[allow(dead_code)]
-pub fn cmd_ccr_backup_restore(backup_filename: String) -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-
-        // 先列出可用的备份让用户确认
-        let backups = manager.list_backups()?;
-
-        if !backups.contains(&backup_filename) {
-            println!("❌ 指定的备份文件不存在: {backup_filename}");
-            println!("💡 使用 'ccode ccr backup list' 查看可用备份");
-            return Ok(());
-        }
-
-        // 确认恢复操作
-        print!("⚠️  确定要从备份 '{backup_filename}' 恢复配置吗？当前配置将被覆盖。(y/N): ");
-        io::stdout().flush().unwrap();
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        let input = input.trim().to_lowercase();
-        if input != "y" && input != "yes" {
-            println!("❌ 取消恢复");
-            return Ok(());
-        }
-
-        match manager.restore_from_backup(&backup_filename) {
-            Ok(_) => {
-                println!("✅ 配置恢复成功");
-                println!("💡 如果CCR服务正在运行，建议重启服务使配置生效");
-            }
-            Err(e) => {
-                println!("❌ 配置恢复失败: {e}");
-            }
-        }
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
-
-    Ok(())
-}
-
-/// 删除CCR配置文件备份
-#[allow(dead_code)]
-pub fn cmd_ccr_backup_delete(backup_filename: String) -> AppResult<()> {
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-
-        // 先检查备份是否存在
-        let backups = manager.list_backups()?;
-
-        if !backups.contains(&backup_filename) {
-            println!("❌ 指定的备份文件不存在: {backup_filename}");
-            println!("💡 使用 'ccode ccr backup list' 查看可用备份");
-            return Ok(());
-        }
-
-        // 确认删除操作
-        print!("⚠️  确定要删除备份 '{backup_filename}' 吗？此操作不可恢复。(y/N): ");
-        io::stdout().flush().unwrap();
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-
-        let input = input.trim().to_lowercase();
-        if input != "y" && input != "yes" {
-            println!("❌ 取消删除");
-            return Ok(());
-        }
-
-        match manager.delete_backup(&backup_filename) {
-            Ok(_) => {
-                println!("✅ 备份删除成功");
-            }
-            Err(e) => {
-                println!("❌ 备份删除失败: {e}");
-            }
-        }
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
-
-    Ok(())
-}
-
-/// 清理旧的CCR配置文件备份
-#[allow(dead_code)]
-pub fn cmd_ccr_backup_cleanup(keep_count: Option<usize>) -> AppResult<()> {
-    let keep_count = keep_count.unwrap_or(5); // 默认保留5个备份
-
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async {
-        let manager = CcrManager::new()?;
-
-        match manager.cleanup_old_backups(keep_count) {
-            Ok(deleted_count) => {
-                if deleted_count > 0 {
-                    println!("✅ 已清理 {deleted_count} 个旧备份文件，保留最新的 {keep_count} 个");
-                } else {
-                    println!("ℹ️  无需清理，当前备份数量未超过保留限制 ({keep_count})");
-                }
-            }
-            Err(e) => {
-                println!("❌ 备份清理失败: {e}");
-            }
-        }
-
-        Ok::<(), crate::error::AppError>(())
-    })?;
+    // 保存更新
+    manager.update_provider(provider)?;
+    println!("✅ Provider '{name}' 更新成功！");
 
     Ok(())
 }

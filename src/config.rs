@@ -352,6 +352,7 @@ impl CcrRouter {
     }
 
     /// 应用默认值到未设置的路由
+    #[allow(dead_code)]
     pub fn apply_defaults(&mut self) {
         let default_route = self.default.clone();
 
@@ -375,147 +376,10 @@ impl CcrRouter {
     }
 }
 
-/// CCR模式配置项（单provider模式）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CcrProfile {
-    /// 单个provider配置
-    #[serde(rename = "Providers")]
-    pub providers: Vec<CcrProvider>,
-    #[serde(rename = "Router")]
-    pub router: CcrRouter,
-    #[serde(rename = "API_TIMEOUT_MS", skip_serializing_if = "Option::is_none")]
-    pub api_timeout_ms: Option<u32>,
-    #[serde(rename = "PROXY_URL", skip_serializing_if = "Option::is_none")]
-    pub proxy_url: Option<String>,
-    #[serde(rename = "LOG", skip_serializing_if = "Option::is_none")]
-    pub log: Option<bool>,
-    #[serde(rename = "APIKEY", skip_serializing_if = "Option::is_none")]
-    pub api_key: Option<String>,
-    #[serde(rename = "HOST", skip_serializing_if = "Option::is_none")]
-    pub host: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<String>,
-}
-
-impl CcrProfile {
-    /// 创建新的CCR配置（单provider模式）
-    pub fn new(
-        provider: CcrProvider,
-        default_route: String,
-        description: Option<String>,
-    ) -> AppResult<Self> {
-        // 验证provider
-        provider.validate()?;
-
-        // 创建Router配置
-        let mut router = CcrRouter::new(default_route);
-        router.apply_defaults(); // 应用默认值
-
-        Ok(Self {
-            providers: vec![provider],
-            router,
-            api_timeout_ms: Some(600000), // 默认10分钟
-            proxy_url: None,
-            log: Some(true), // 默认开启日志
-            api_key: None,
-            host: None,
-            description,
-            created_at: None,
-        })
-    }
-
-    /// 获取主要的provider（在单provider模式下）
-    pub fn get_primary_provider(&self) -> Option<&CcrProvider> {
-        self.providers.first()
-    }
-
-    /// 更新provider信息
-    #[allow(dead_code)]
-    pub fn update_provider(&mut self, provider: CcrProvider) -> AppResult<()> {
-        provider.validate()?;
-
-        if self.providers.is_empty() {
-            self.providers.push(provider);
-        } else {
-            self.providers[0] = provider;
-        }
-
-        Ok(())
-    }
-
-    /// 更新Router配置
-    #[allow(dead_code)]
-    pub fn update_router(&mut self, router: CcrRouter) -> AppResult<()> {
-        router.validate()?;
-        self.router = router;
-        Ok(())
-    }
-
-    /// 验证配置有效性
-    pub fn validate(&self) -> AppResult<()> {
-        // 验证providers不为空
-        if self.providers.is_empty() {
-            return Err(AppError::InvalidConfig("CCR提供商列表不能为空".to_string()));
-        }
-
-        // 验证每个provider
-        for provider in &self.providers {
-            provider.validate()?;
-        }
-
-        // 验证router配置
-        self.router.validate()?;
-
-        // 验证router中的provider名称是否存在
-        let provider_names: std::collections::HashSet<_> =
-            self.providers.iter().map(|p| p.name.as_str()).collect();
-
-        for (route_name, route_value) in self.router.get_all_routes() {
-            if let Some(provider_name) = route_value.split(',').next() {
-                if !provider_names.contains(provider_name) {
-                    return Err(AppError::InvalidConfig(format!(
-                        "路由'{route_name}'中的提供商'{provider_name}'不存在"
-                    )));
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// 生成用于CCR的配置文件内容
-    pub fn to_ccr_config(&self) -> serde_json::Value {
-        let mut config = serde_json::json!({
-            "Providers": self.providers,
-            "Router": self.router
-        });
-
-        // 添加可选字段
-        if let Some(timeout) = self.api_timeout_ms {
-            config["API_TIMEOUT_MS"] = serde_json::Value::Number(timeout.into());
-        }
-        if let Some(proxy_url) = &self.proxy_url {
-            config["PROXY_URL"] = serde_json::Value::String(proxy_url.clone());
-        }
-        if let Some(log) = self.log {
-            config["LOG"] = serde_json::Value::Bool(log);
-        }
-        if let Some(api_key) = &self.api_key {
-            config["APIKEY"] = serde_json::Value::String(api_key.clone());
-        }
-        if let Some(host) = &self.host {
-            config["HOST"] = serde_json::Value::String(host.clone());
-        }
-
-        config
-    }
-}
-
 /// Provider模板生成器
 impl ProviderType {
     /// 创建provider模板（用于交互式配置）
+    #[allow(dead_code)]
     pub fn create_provider_template(
         &self,
         name: String,
@@ -532,6 +396,7 @@ impl ProviderType {
     }
 
     /// 获取默认的API URL
+    #[allow(dead_code)]
     fn get_default_api_url(&self) -> String {
         match self {
             ProviderType::OpenAI => "https://api.openai.com/v1/chat/completions".to_string(),
@@ -548,7 +413,7 @@ impl ProviderType {
     }
 
     /// 获取默认的模型列表
-    fn get_default_models(&self) -> Vec<String> {
+    pub fn get_default_models(&self) -> Vec<String> {
         match self {
             ProviderType::OpenAI => vec![
                 "gpt-4o".to_string(),
@@ -576,6 +441,7 @@ impl ProviderType {
     }
 
     /// 获取推荐的默认路由
+    #[allow(dead_code)]
     pub fn get_recommended_default_route(&self, provider_name: &str) -> String {
         let models = self.get_default_models();
         let default_model = models
@@ -623,88 +489,172 @@ impl ProviderType {
     }
 }
 
-/// CCR配置模板生成器
-impl CcrProfile {
-    /// 快速创建预设模板
-    pub fn create_template(
-        provider_type: ProviderType,
-        name: String,
-        api_key: String,
-        custom_url: Option<String>,
-        description: Option<String>,
-    ) -> AppResult<Self> {
-        // 创建provider
-        let provider = provider_type.create_provider_template(name.clone(), api_key, custom_url)?;
+// ==================== Claude Code Router 配置文件结构 ====================
 
-        // 创建默认路由
-        let default_route = provider_type.get_recommended_default_route(&name);
+/// 完整的 claude-code-router 配置文件结构
+#[allow(non_snake_case)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CcrConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub APIKEY: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub PROXY_URL: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub LOG: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub API_TIMEOUT_MS: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub HOST: Option<String>,
+    pub Providers: Vec<CcrProvider>,
+    pub Router: CcrRouter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transformers: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub CUSTOM_ROUTER_PATH: Option<String>,
+}
 
-        // 创建CCR配置
-        let mut profile = Self::new(provider, default_route, description)?;
-
-        // 根据provider类型设置特定的配置选项
-        match provider_type {
-            ProviderType::DeepSeek => {
-                // DeepSeek的think路由使用reasoner模型
-                if let Some(provider) = profile.get_primary_provider() {
-                    if provider.models.iter().any(|m| m.contains("reasoner")) {
-                        profile.router.think = Some(format!("{},deepseek-reasoner", provider.name));
-                    }
-                }
-            }
-            ProviderType::OpenRouter => {
-                // OpenRouter的长上下文设置
-                if let Some(provider) = profile.get_primary_provider() {
-                    if provider.models.iter().any(|m| m.contains("gemini-2.5-pro")) {
-                        profile.router.long_context =
-                            Some(format!("{},google/gemini-2.5-pro-preview", provider.name));
-                    }
-                }
-            }
-            ProviderType::Qwen => {
-                // Qwen的API超时设置更长
-                profile.api_timeout_ms = Some(900000); // 15分钟
-            }
-            _ => {}
+impl CcrConfig {
+    /// 创建新的 CCR 配置文件
+    pub fn new() -> Self {
+        Self {
+            APIKEY: None,
+            PROXY_URL: None,
+            LOG: Some(true),
+            API_TIMEOUT_MS: Some(600000),
+            HOST: None,
+            Providers: Vec::new(),
+            Router: CcrRouter::new("provider,model".to_string()),
+            transformers: None,
+            CUSTOM_ROUTER_PATH: None,
         }
-
-        Ok(profile)
     }
 
-    /// 创建多provider组合模板
-    #[allow(dead_code)]
-    pub fn create_multi_provider_template(
-        providers: Vec<(ProviderType, String, String, Option<String>)>, // (type, name, api_key, custom_url)
-        description: Option<String>,
-    ) -> AppResult<Self> {
-        if providers.is_empty() {
-            return Err(AppError::InvalidConfig("至少需要一个provider".to_string()));
+    /// 验证配置有效性
+    pub fn validate(&self) -> AppResult<()> {
+        // 验证 Providers 不为空
+        if self.Providers.is_empty() {
+            return Err(AppError::InvalidConfig("Providers列表不能为空".to_string()));
         }
 
-        // 创建第一个provider作为主要provider
-        let (first_type, first_name, first_api_key, first_url) = &providers[0];
-        let mut profile = Self::create_template(
-            first_type.clone(),
-            first_name.clone(),
-            first_api_key.clone(),
-            first_url.clone(),
+        // 验证每个 Provider
+        for provider in &self.Providers {
+            provider.validate()?;
+        }
+
+        // 验证 Router 配置
+        self.Router.validate()?;
+
+        // 验证 Router 中引用的 provider 存在
+        let provider_names: std::collections::HashSet<_> =
+            self.Providers.iter().map(|p| p.name.as_str()).collect();
+
+        for (route_name, route_value) in self.Router.get_all_routes() {
+            if let Some(provider_name) = route_value.split(',').next() {
+                if !provider_names.contains(provider_name) {
+                    return Err(AppError::InvalidConfig(format!(
+                        "路由'{route_name}'中的提供商'{provider_name}'不存在"
+                    )));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 添加 Provider
+    pub fn add_provider(&mut self, provider: CcrProvider) -> AppResult<()> {
+        // 检查名称是否重复
+        if self.Providers.iter().any(|p| p.name == provider.name) {
+            return Err(AppError::Config(format!(
+                "Provider '{}' 已存在",
+                provider.name
+            )));
+        }
+
+        provider.validate()?;
+        self.Providers.push(provider);
+        Ok(())
+    }
+
+    /// 删除 Provider
+    pub fn remove_provider(&mut self, name: &str) -> AppResult<()> {
+        let original_len = self.Providers.len();
+        self.Providers.retain(|p| p.name != name);
+
+        if self.Providers.len() == original_len {
+            return Err(AppError::Config(format!("Provider '{name}' 不存在")));
+        }
+
+        Ok(())
+    }
+
+    /// 获取 Provider
+    pub fn get_provider(&self, name: &str) -> Option<&CcrProvider> {
+        self.Providers.iter().find(|p| p.name == name)
+    }
+
+    /// 更新 Provider
+    pub fn update_provider(&mut self, provider: CcrProvider) -> AppResult<()> {
+        provider.validate()?;
+
+        if let Some(existing) = self.Providers.iter_mut().find(|p| p.name == provider.name) {
+            *existing = provider;
+            Ok(())
+        } else {
+            Err(AppError::Config(format!(
+                "Provider '{}' 不存在",
+                provider.name
+            )))
+        }
+    }
+
+    /// 更新 Router 配置
+    pub fn update_router(&mut self, router: CcrRouter) -> AppResult<()> {
+        router.validate()?;
+        self.Router = router;
+        Ok(())
+    }
+}
+
+impl Default for CcrConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Router Profile - 路由配置预设
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouterProfile {
+    pub name: String,
+    pub router: CcrRouter,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+}
+
+impl RouterProfile {
+    /// 创建新的 Router Profile
+    pub fn new(name: String, router: CcrRouter, description: Option<String>) -> AppResult<Self> {
+        router.validate()?;
+
+        Ok(Self {
+            name,
+            router,
             description,
-        )?;
+            created_at: None,
+        })
+    }
 
-        // 添加其他providers
-        for (provider_type, name, api_key, custom_url) in providers.iter().skip(1) {
-            let provider = provider_type.create_provider_template(
-                name.clone(),
-                api_key.clone(),
-                custom_url.clone(),
-            )?;
-
-            profile.providers.push(provider);
+    /// 验证配置有效性
+    pub fn validate(&self) -> AppResult<()> {
+        if self.name.trim().is_empty() {
+            return Err(AppError::InvalidConfig(
+                "Router Profile 名称不能为空".to_string(),
+            ));
         }
 
-        // 重新验证整个配置
-        profile.validate()?;
-        Ok(profile)
+        self.router.validate()
     }
 }
 
@@ -712,14 +662,16 @@ impl CcrProfile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefaultProfile {
     pub direct: Option<String>,
-    pub ccr: Option<String>,
+    /// 默认的 Router Profile
+    pub router: Option<String>,
 }
 
 /// 配置组集合
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Groups {
     pub direct: HashMap<String, DirectProfile>,
-    pub ccr: HashMap<String, CcrProfile>,
+    /// Router Profile 配置集合
+    pub router: HashMap<String, RouterProfile>,
 }
 
 /// 配置文件结构
@@ -746,11 +698,11 @@ impl Default for Config {
             default_group: Some("direct".to_string()),
             default_profile: Some(DefaultProfile {
                 direct: None,
-                ccr: None,
+                router: None,
             }),
             groups: Groups {
                 direct: HashMap::new(),
-                ccr: HashMap::new(),
+                router: HashMap::new(),
             },
             // 兼容字段设为None
             default: None,
@@ -806,7 +758,7 @@ impl Config {
             if self.default_profile.is_none() {
                 self.default_profile = Some(DefaultProfile {
                     direct: Some(old_default),
-                    ccr: None,
+                    router: None,
                 });
             } else if let Some(ref mut default_profile) = self.default_profile {
                 if default_profile.direct.is_none() {
@@ -855,33 +807,7 @@ impl Config {
             } else {
                 self.default_profile = Some(DefaultProfile {
                     direct: Some(name),
-                    ccr: None,
-                });
-            }
-        }
-
-        Ok(())
-    }
-
-    /// 添加CCR配置
-    pub fn add_ccr_profile(&mut self, name: String, profile: CcrProfile) -> AppResult<()> {
-        if self.groups.ccr.contains_key(&name) {
-            return Err(AppError::Config(format!("配置 '{name}' 已存在")));
-        }
-
-        // 验证配置
-        self.validate_ccr_profile(&profile)?;
-
-        self.groups.ccr.insert(name.clone(), profile);
-
-        // 如果这是第一个CCR配置，设为默认
-        if self.groups.ccr.len() == 1 {
-            if let Some(ref mut default_profile) = self.default_profile {
-                default_profile.ccr = Some(name);
-            } else {
-                self.default_profile = Some(DefaultProfile {
-                    direct: None,
-                    ccr: Some(name),
+                    router: None,
                 });
             }
         }
@@ -896,11 +822,6 @@ impl Config {
             return self.remove_direct_profile(name);
         }
 
-        // 再尝试从ccr组删除
-        if self.groups.ccr.contains_key(name) {
-            return self.remove_ccr_profile(name);
-        }
-
         Err(AppError::ProfileNotFound(name.to_string()))
     }
 
@@ -909,7 +830,6 @@ impl Config {
     pub fn remove_profile_from_group(&mut self, group: &str, name: &str) -> AppResult<()> {
         match group {
             "direct" => self.remove_direct_profile(name),
-            "ccr" => self.remove_ccr_profile(name),
             _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
         }
     }
@@ -932,24 +852,6 @@ impl Config {
         Ok(())
     }
 
-    /// 删除CCR配置
-    pub fn remove_ccr_profile(&mut self, name: &str) -> AppResult<()> {
-        if !self.groups.ccr.contains_key(name) {
-            return Err(AppError::ProfileNotFound(name.to_string()));
-        }
-
-        self.groups.ccr.remove(name);
-
-        // 如果删除的是默认配置，选择新的默认配置
-        if let Some(ref mut default_profile) = self.default_profile {
-            if default_profile.ccr.as_ref() == Some(&name.to_string()) {
-                default_profile.ccr = self.groups.ccr.keys().next().cloned();
-            }
-        }
-
-        Ok(())
-    }
-
     /// 获取指定配置（向后兼容，优先从direct组查找）
     pub fn get_profile(&self, name: &str) -> AppResult<&Profile> {
         self.get_direct_profile(name)
@@ -963,14 +865,6 @@ impl Config {
             .ok_or_else(|| AppError::ProfileNotFound(name.to_string()))
     }
 
-    /// 获取CCR配置
-    pub fn get_ccr_profile(&self, name: &str) -> AppResult<&CcrProfile> {
-        self.groups
-            .ccr
-            .get(name)
-            .ok_or_else(|| AppError::ProfileNotFound(name.to_string()))
-    }
-
     /// 从指定组获取配置
     #[allow(dead_code)]
     pub fn get_profile_from_group(&self, group: &str, name: &str) -> AppResult<(&str, String)> {
@@ -978,13 +872,6 @@ impl Config {
             "direct" => {
                 if self.groups.direct.contains_key(name) {
                     Ok(("direct", name.to_string()))
-                } else {
-                    Err(AppError::ProfileNotFound(name.to_string()))
-                }
-            }
-            "ccr" => {
-                if self.groups.ccr.contains_key(name) {
-                    Ok(("ccr", name.to_string()))
                 } else {
                     Err(AppError::ProfileNotFound(name.to_string()))
                 }
@@ -1012,18 +899,6 @@ impl Config {
         Ok((default_name, profile))
     }
 
-    /// 获取默认的CCR配置
-    pub fn get_default_ccr_profile(&self) -> AppResult<(&String, &CcrProfile)> {
-        let default_name = self
-            .default_profile
-            .as_ref()
-            .and_then(|dp| dp.ccr.as_ref())
-            .ok_or_else(|| AppError::Config("未设置默认CCR配置".to_string()))?;
-
-        let profile = self.get_ccr_profile(default_name)?;
-        Ok((default_name, profile))
-    }
-
     /// 获取指定组的默认配置
     #[allow(dead_code)]
     pub fn get_default_profile_from_group(&self, group: &str) -> AppResult<(String, String)> {
@@ -1031,10 +906,6 @@ impl Config {
             "direct" => {
                 let (name, _) = self.get_default_direct_profile()?;
                 Ok(("direct".to_string(), name.clone()))
-            }
-            "ccr" => {
-                let (name, _) = self.get_default_ccr_profile()?;
-                Ok(("ccr".to_string(), name.clone()))
             }
             _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
         }
@@ -1044,10 +915,6 @@ impl Config {
     pub fn set_default(&mut self, name: &str) -> AppResult<()> {
         if self.groups.direct.contains_key(name) {
             return self.set_default_direct(name);
-        }
-
-        if self.groups.ccr.contains_key(name) {
-            return self.set_default_ccr(name);
         }
 
         Err(AppError::ProfileNotFound(name.to_string()))
@@ -1064,24 +931,7 @@ impl Config {
         } else {
             self.default_profile = Some(DefaultProfile {
                 direct: Some(name.to_string()),
-                ccr: None,
-            });
-        }
-        Ok(())
-    }
-
-    /// 设置默认CCR配置
-    pub fn set_default_ccr(&mut self, name: &str) -> AppResult<()> {
-        if !self.groups.ccr.contains_key(name) {
-            return Err(AppError::ProfileNotFound(name.to_string()));
-        }
-
-        if let Some(ref mut default_profile) = self.default_profile {
-            default_profile.ccr = Some(name.to_string());
-        } else {
-            self.default_profile = Some(DefaultProfile {
-                direct: None,
-                ccr: Some(name.to_string()),
+                router: None,
             });
         }
         Ok(())
@@ -1092,7 +942,6 @@ impl Config {
     pub fn set_default_from_group(&mut self, group: &str, name: &str) -> AppResult<()> {
         match group {
             "direct" => self.set_default_direct(name),
-            "ccr" => self.set_default_ccr(name),
             _ => Err(AppError::Config(format!("未知的配置组: {group}"))),
         }
     }
@@ -1120,33 +969,12 @@ impl Config {
             .collect()
     }
 
-    /// 列出CCR配置
-    pub fn list_ccr_profiles(&self) -> Vec<(String, &CcrProfile, bool)> {
-        let default_name = self.default_profile.as_ref().and_then(|dp| dp.ccr.as_ref());
-
-        self.groups
-            .ccr
-            .iter()
-            .map(|(name, profile)| {
-                let is_default = default_name == Some(name);
-                (name.clone(), profile, is_default)
-            })
-            .collect()
-    }
-
     /// 列出指定组的配置
     #[allow(dead_code)]
     pub fn list_profiles_from_group(&self, group: &str) -> AppResult<Vec<(String, bool)>> {
         match group {
             "direct" => {
                 let profiles = self.list_direct_profiles();
-                Ok(profiles
-                    .into_iter()
-                    .map(|(name, _, is_default)| (name, is_default))
-                    .collect())
-            }
-            "ccr" => {
-                let profiles = self.list_ccr_profiles();
                 Ok(profiles
                     .into_iter()
                     .map(|(name, _, is_default)| (name, is_default))
@@ -1164,11 +992,6 @@ impl Config {
         // 添加direct组配置
         for (name, is_default) in self.list_profiles_from_group("direct").unwrap_or_default() {
             all_profiles.push(("direct".to_string(), name, is_default));
-        }
-
-        // 添加ccr组配置
-        for (name, is_default) in self.list_profiles_from_group("ccr").unwrap_or_default() {
-            all_profiles.push(("ccr".to_string(), name, is_default));
         }
 
         all_profiles
@@ -1203,9 +1026,121 @@ impl Config {
         Ok(())
     }
 
-    /// 验证CCR配置有效性
-    fn validate_ccr_profile(&self, profile: &CcrProfile) -> AppResult<()> {
-        // 使用CcrProfile自己的验证方法
+    // ==================== Router Profile 管理方法 ====================
+
+    /// 添加 Router Profile
+    pub fn add_router_profile(&mut self, name: String, profile: RouterProfile) -> AppResult<()> {
+        if self.groups.router.contains_key(&name) {
+            return Err(AppError::Config(format!("Router Profile '{name}' 已存在")));
+        }
+
+        // 验证配置
+        profile.validate()?;
+
+        self.groups.router.insert(name.clone(), profile);
+
+        // 如果这是第一个 Router Profile，设为默认
+        if self.groups.router.len() == 1 {
+            if let Some(ref mut default_profile) = self.default_profile {
+                default_profile.router = Some(name);
+            } else {
+                self.default_profile = Some(DefaultProfile {
+                    direct: None,
+                    router: Some(name),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 删除 Router Profile
+    pub fn remove_router_profile(&mut self, name: &str) -> AppResult<()> {
+        if !self.groups.router.contains_key(name) {
+            return Err(AppError::ProfileNotFound(name.to_string()));
+        }
+
+        self.groups.router.remove(name);
+
+        // 如果删除的是默认配置，选择新的默认配置
+        if let Some(ref mut default_profile) = self.default_profile {
+            if default_profile.router.as_ref() == Some(&name.to_string()) {
+                default_profile.router = self.groups.router.keys().next().cloned();
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 获取 Router Profile
+    pub fn get_router_profile(&self, name: &str) -> AppResult<&RouterProfile> {
+        self.groups
+            .router
+            .get(name)
+            .ok_or_else(|| AppError::ProfileNotFound(name.to_string()))
+    }
+
+    /// 更新 Router Profile
+    #[allow(dead_code)]
+    pub fn update_router_profile(&mut self, name: String, profile: RouterProfile) -> AppResult<()> {
+        if !self.groups.router.contains_key(&name) {
+            return Err(AppError::ProfileNotFound(name.to_string()));
+        }
+
+        profile.validate()?;
+        self.groups.router.insert(name, profile);
+        Ok(())
+    }
+
+    /// 获取默认的 Router Profile
+    pub fn get_default_router_profile(&self) -> AppResult<(&String, &RouterProfile)> {
+        let default_name = self
+            .default_profile
+            .as_ref()
+            .and_then(|dp| dp.router.as_ref())
+            .ok_or_else(|| AppError::Config("未设置默认 Router Profile".to_string()))?;
+
+        let profile = self.get_router_profile(default_name)?;
+        Ok((default_name, profile))
+    }
+
+    /// 设置默认 Router Profile
+    pub fn set_default_router(&mut self, name: &str) -> AppResult<()> {
+        if !self.groups.router.contains_key(name) {
+            return Err(AppError::ProfileNotFound(name.to_string()));
+        }
+
+        if let Some(ref mut default_profile) = self.default_profile {
+            default_profile.router = Some(name.to_string());
+        } else {
+            self.default_profile = Some(DefaultProfile {
+                direct: None,
+                router: Some(name.to_string()),
+            });
+        }
+        Ok(())
+    }
+
+    /// 列出 Router Profiles
+    pub fn list_router_profiles(&self) -> Vec<(String, &RouterProfile, bool)> {
+        let default_name = self
+            .default_profile
+            .as_ref()
+            .and_then(|dp| dp.router.as_ref());
+
+        self.groups
+            .router
+            .iter()
+            .map(|(name, profile)| {
+                let is_default = default_name == Some(name);
+                (name.clone(), profile, is_default)
+            })
+            .collect()
+    }
+
+    /// 验证 Router Profile 配置有效性
+    #[allow(dead_code)]
+    fn validate_router_profile(&self, profile: &RouterProfile) -> AppResult<()> {
         profile.validate()
     }
 }
@@ -1229,7 +1164,7 @@ mod tests {
         assert_eq!(config.version, "1.0");
         assert_eq!(config.default, None);
         assert!(config.groups.direct.is_empty());
-        assert!(config.groups.ccr.is_empty());
+        assert!(config.groups.router.is_empty());
     }
 
     #[test]
