@@ -379,8 +379,9 @@ CCR根据请求特征自动选择模型：
 - **系统信息**: sysinfo
 
 ### 质量保证
-- **测试覆盖**: 单元测试 + 集成测试
+- **测试覆盖**: 单元测试 + 集成测试 (7个核心测试)
 - **代码质量**: Zero warnings (clippy + rustfmt)
+- **代码行数**: 3,122 行精简高效代码
 - **安全扫描**: cargo-audit 自动检查
 - **CI/CD**: GitHub Actions 全平台构建
 
@@ -394,7 +395,6 @@ src/
 ├── commands.rs       # 命令实现逻辑
 ├── config.rs         # 配置数据结构和管理
 ├── ccr_config.rs     # CCR配置文件管理
-├── ccr_manager.rs    # CCR服务生命周期管理
 ├── error.rs          # 统一错误处理
 └── lib.rs            # 库入口模块导出
 ```
