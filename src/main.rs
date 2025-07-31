@@ -12,7 +12,7 @@ use error::AppResult;
 #[derive(Parser)]
 #[command(name = "ccode")]
 #[command(about = "Claude Code 环境切换工具", long_about = None)]
-#[command(version = "0.1.0")]
+#[command(version = "0.2.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
