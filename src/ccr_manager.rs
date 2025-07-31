@@ -1,4 +1,3 @@
-use crate::config::{CcrProfile, CcrProvider, Config, ProviderType};
 use crate::error::{AppError, AppResult};
 use chrono::Utc;
 use std::fs;
@@ -180,6 +179,7 @@ impl CcrManager {
     }
 
     /// 检查CCR配置是否为空
+    #[allow(dead_code)]
     pub async fn is_ccr_config_empty(&self) -> AppResult<bool> {
         let config_path = self.get_ccr_config_path();
 
@@ -210,147 +210,17 @@ impl CcrManager {
     }
 
     /// 从现有的claude-code-router配置文件导入配置到ccode
+    /// 注意：此功能已过时，新架构不再需要导入功能
+    #[allow(dead_code)]
     pub async fn import_from_ccr_config(&self) -> AppResult<Option<String>> {
-        let config_path = self.get_ccr_config_path();
-
-        if !config_path.exists() {
-            return Ok(None);
-        }
-
-        // 读取配置文件
-        let content = fs::read_to_string(&config_path)?;
-
-        // 解析CCR配置
-        let ccr_config: serde_json::Value = serde_json::from_str(&content)
-            .map_err(|e| AppError::Config(format!("解析CCR配置文件失败: {e}")))?;
-
-        // 提取Providers信息
-        let providers = ccr_config
-            .get("Providers")
-            .and_then(|p| p.as_array())
-            .ok_or_else(|| AppError::Config("CCR配置文件中没有找到Providers字段".to_string()))?;
-
-        if providers.is_empty() {
-            return Ok(None);
-        }
-
-        // 读取现有的ccode配置
-        let mut ccode_config = Config::load().unwrap_or_default();
-
-        let mut imported_count = 0;
-
-        // 为每个provider创建一个ccode CCR配置
-        for (index, provider_json) in providers.iter().enumerate() {
-            // 解析provider信息
-            let default_name = format!("imported_provider_{}", index + 1);
-            let name = provider_json
-                .get("name")
-                .and_then(|n| n.as_str())
-                .unwrap_or(&default_name);
-
-            let api_base_url = provider_json
-                .get("api_base_url")
-                .and_then(|u| u.as_str())
-                .unwrap_or("");
-
-            let api_key = provider_json
-                .get("api_key")
-                .and_then(|k| k.as_str())
-                .unwrap_or("");
-
-            let models: Vec<String> = provider_json
-                .get("models")
-                .and_then(|m| m.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .map(|s| s.to_string())
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            if api_base_url.is_empty() || models.is_empty() {
-                continue; // 跳过无效的provider
-            }
-
-            // 检测provider类型
-            let provider_type = self.detect_provider_type(api_base_url, name);
-
-            // 创建CcrProvider
-            let provider = CcrProvider::new(
-                name.to_string(),
-                api_base_url.to_string(),
-                api_key.to_string(),
-                models.clone(),
-                provider_type,
-            );
-
-            // 创建默认路由
-            let default_route = if !models.is_empty() {
-                format!("{name},{}", models[0])
-            } else {
-                format!("{name},default-model")
-            };
-
-            // 创建CCR配置
-            match CcrProfile::new(
-                provider,
-                default_route,
-                Some(format!("从CCR配置导入: {name}")),
-            ) {
-                Ok(ccr_profile) => {
-                    let profile_name = format!("imported_{name}");
-
-                    // 检查是否已存在同名配置
-                    if !ccode_config.groups.ccr.contains_key(&profile_name) {
-                        if let Err(e) =
-                            ccode_config.add_ccr_profile(profile_name.clone(), ccr_profile)
-                        {
-                            eprintln!("⚠️  导入provider '{name}'失败: {e}");
-                        } else {
-                            imported_count += 1;
-                            println!("✅ 已导入provider '{name}' 为CCR配置 '{profile_name}'");
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("⚠️  创建CCR配置失败 '{name}': {e}");
-                }
-            }
-        }
-
-        if imported_count > 0 {
-            // 保存配置
-            ccode_config.save()?;
-            Ok(Some(format!("成功导入 {imported_count} 个CCR配置")))
-        } else {
-            Ok(None)
-        }
+        println!("💡 导入功能已过时");
+        println!("新架构使用直接的Provider + Router Profile管理");
+        println!("请使用以下命令替代:");
+        println!("  • ccode provider add <name>  # 添加Provider");
+        println!("  • ccode router add <name>    # 添加Router Profile");
+        Ok(None)
     }
 
-    /// 检测provider类型
-    fn detect_provider_type(&self, api_base_url: &str, name: &str) -> ProviderType {
-        let url_lower = api_base_url.to_lowercase();
-        let name_lower = name.to_lowercase();
-
-        if url_lower.contains("openrouter.ai") || name_lower.contains("openrouter") {
-            ProviderType::OpenRouter
-        } else if url_lower.contains("deepseek") || name_lower.contains("deepseek") {
-            ProviderType::DeepSeek
-        } else if url_lower.contains("generativelanguage.googleapis.com")
-            || url_lower.contains("/v1beta/models/")
-            || name_lower.contains("gemini")
-        {
-            ProviderType::Gemini
-        } else if name_lower.contains("qwen")
-            || url_lower.contains("dashscope")
-            || url_lower.contains("modelscope")
-        {
-            ProviderType::Qwen
-        } else {
-            ProviderType::OpenAI // 默认为OpenAI兼容
-        }
-    }
     pub async fn check_ccr_availability(&self) -> AppResult<bool> {
         // 检查是否安装了 @musistudio/claude-code-router
         let output = Command::new("pnpm")
@@ -420,27 +290,6 @@ impl CcrManager {
             let stderr = String::from_utf8_lossy(&output.stderr);
             Err(AppError::Config(format!("npm命令执行失败: {stderr}")))
         }
-    }
-
-    /// 生成CCR配置文件（带备份）
-    pub fn generate_ccr_config(&self, profile: &CcrProfile) -> AppResult<()> {
-        let config_path = self.get_ccr_config_path();
-
-        // 如果配置文件已存在，先创建备份
-        if config_path.exists() {
-            if let Err(e) = self.create_backup() {
-                eprintln!("⚠️  创建备份失败: {e}");
-            }
-        }
-
-        // 创建CCR标准格式的配置
-        let ccr_config = profile.to_ccr_config();
-        let formatted_config = serde_json::to_string_pretty(&ccr_config)?;
-
-        fs::write(&config_path, formatted_config)?;
-
-        println!("✅ CCR配置文件已生成: {}", config_path.display());
-        Ok(())
     }
 
     /// 启动CCR服务

@@ -1,6 +1,6 @@
 # ccode 🚀
 
-**Claude Code 环境切换工具** - 一个用于快速切换不同API服务配置并启动claude程序的命令行工具
+**Claude Code 环境管理工具** - 支持双模式配置的Claude环境切换和智能路由代理工具
 
 [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions)
 [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions)
@@ -9,35 +9,46 @@
 [![Rust Version](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://www.rust-lang.org)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgray)](https://github.com/junjiangao/ccode/releases)
 
-## ✨ 特性
+## ✨ 核心特性
 
-- 🔧 **多配置管理**：支持管理多个API服务配置（如anyrouter、instcopilot等）
-- 🔄 **一键切换**：快速切换不同的API环境
-- 🚀 **自动启动**：设置环境变量后自动启动claude程序
-- 💻 **交互式操作**：友好的命令行交互界面
-- 🎯 **默认配置**：支持设置和管理默认配置
-- 🛡️ **配置验证**：自动验证URL格式，支持各种第三方API token
-- 🌐 **跨平台**：支持Windows、macOS、Linux
+### 🔄 双模式架构
+- **🎯 Direct模式**：传统的简单API配置（向后兼容）
+- **🚀 CCR模式**：集成Claude Code Router的智能路由系统
 
-## 📦 安装
+### 🌟 CCR模式优势
+- 🔀 **智能路由**：根据任务类型自动选择最适合的模型
+  - `default`: 日常任务的默认模型
+  - `background`: 后台任务的高性价比模型  
+  - `think`: 推理密集型任务的强推理模型
+  - `longContext`: 长上下文任务的大窗口模型
+  - `webSearch`: 网络搜索任务的专用模型
+- 🏗️ **多Provider支持**：OpenRouter、DeepSeek、Gemini、Qwen、自定义等
+- ⚖️ **负载均衡**：多个相同类型模型间的智能分配
+- 🔧 **请求转换**：自动适配不同Provider的API格式
+- 📊 **服务管理**：完整的CCR服务生命周期控制
+
+### 🛠️ 管理功能
+- 💾 **配置管理**：支持多配置存储和快速切换
+- 🎯 **智能推荐**：基于Provider类型的模型推荐
+- 📱 **交互式操作**：友好的命令行交互界面
+- 🌐 **跨平台支持**：Windows、macOS、Linux
+
+## 🚀 快速开始
 
 ### 📋 系统要求
 
-#### 官方预编译版本
-- **Linux**: Ubuntu 22.04 LTS (官方CI/CD构建和测试环境)
-- **Windows**: Windows 10/11
-- **macOS**: macOS 11+ (Intel + Apple Silicon)
+- **Rust**: 1.70+（如需从源码编译）
+- **Claude CLI**: 已安装claude命令行工具
+- **Node.js/npm**: CCR模式需要npm环境（自动管理依赖）
 
-#### 其他Linux发行版
-- CentOS、openSUSE、Arch Linux等需要从源码自行编译
-- 最低要求：Rust 1.70+、glibc 2.31+
+### 📦 安装
 
-### 🚀 预编译二进制文件（推荐）
+#### 🚀 预编译二进制文件（推荐）
 
-从 [GitHub Releases](https://github.com/junjiangao/ccode/releases) 下载对应平台的预编译二进制文件：
+从[GitHub Releases](https://github.com/junjiangao/ccode/releases)下载对应平台的预编译二进制文件：
 
 ```bash
-# Linux (Ubuntu 22.04 LTS 官方版本)
+# Linux (Ubuntu 22.04 LTS)
 wget https://github.com/junjiangao/ccode/releases/latest/download/ccode-linux-x86_64
 chmod +x ccode-linux-x86_64
 sudo mv ccode-linux-x86_64 /usr/local/bin/ccode
@@ -52,208 +63,326 @@ wget https://github.com/junjiangao/ccode/releases/latest/download/ccode-macos-aa
 chmod +x ccode-macos-aarch64
 sudo mv ccode-macos-aarch64 /usr/local/bin/ccode
 
-# Windows
-# 下载 ccode-windows-x86_64.exe 并放到 PATH 中
+# Windows: 下载 ccode-windows-x86_64.exe 并放到 PATH 中
 ```
 
-### 🔨 从源码编译
+#### 🔨 从源码编译
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/junjiangao/ccode.git
 cd ccode
 cargo build --release
-```
-
-编译完成后，可执行文件位于 `target/release/ccode`
-
-### 添加到PATH
-
-```bash
-# Linux/macOS
-export PATH="$PATH:/path/to/ccode/target/release"
-
-# 或者复制到系统目录
 sudo cp target/release/ccode /usr/local/bin/
 ```
 
-## 🚀 快速开始
+## 📖 使用指南
 
-### 1. 添加第一个配置
+### 🎯 Direct模式（简单配置）
 
+适合简单的API切换需求，与传统版本完全兼容。
+
+#### 添加Direct配置
 ```bash
-ccode add anyrouter
+ccode add myapi --group direct
+# 或使用默认的direct组
+ccode add myapi
 ```
 
 按提示输入：
-- ANTHROPIC_AUTH_TOKEN: `your-api-token-here`
-- ANTHROPIC_BASE_URL: `https://anyrouter.top`
-- 描述（可选）: `AnyRouter API服务`
+- ANTHROPIC_AUTH_TOKEN: `your-api-token`
+- ANTHROPIC_BASE_URL: `https://api.example.com`
+- 描述（可选）: `我的API服务`
 
-### 2. 查看配置
-
+#### 使用Direct配置
 ```bash
-ccode list
+# 列出Direct配置
+ccode list --group direct
+
+# 设置默认配置
+ccode use myapi --group direct
+
+# 启动claude
+ccode run myapi --group direct
 ```
 
-### 3. 启动claude
+### 🚀 CCR模式（智能路由）
+
+适合复杂的多模型路由需求，支持智能选择和负载均衡。
+
+#### 添加CCR配置
+```bash
+ccode add-ccr production
+# 或
+ccode add production --group ccr
+```
+
+交互式配置流程：
+1. **Provider管理**：选择或添加多个Provider（OpenRouter、DeepSeek等）
+2. **模型配置**：为每个Provider配置可用模型
+3. **路由设置**：配置不同场景的路由规则
+4. **服务管理**：自动启动CCR服务
+
+#### CCR配置示例
+
+```json
+{
+  "providers": [
+    {
+      "name": "openrouter",
+      "api_base_url": "https://openrouter.ai/api/v1/chat/completions",
+      "api_key": "sk-or-xxx",
+      "models": ["anthropic/claude-3.5-sonnet", "google/gemini-2.5-pro-preview"],
+      "provider_type": "openrouter"
+    },
+    {
+      "name": "deepseek",
+      "api_base_url": "https://api.deepseek.com/chat/completions", 
+      "api_key": "sk-xxx",
+      "models": ["deepseek-chat", "deepseek-reasoner"],
+      "provider_type": "deepseek"
+    }
+  ],
+  "router": {
+    "default": "deepseek,deepseek-chat",
+    "background": "deepseek,deepseek-chat", 
+    "think": "deepseek,deepseek-reasoner",
+    "longContext": "openrouter,google/gemini-2.5-pro-preview",
+    "longContextThreshold": 60000
+  }
+}
+```
+
+#### 使用CCR配置
+```bash
+# 列出CCR配置
+ccode list-ccr
+
+# 设置默认CCR配置
+ccode use-ccr production
+
+# 启动claude（智能路由）
+ccode run-ccr production
+```
+
+### ⚙️ CCR服务管理
 
 ```bash
-# 使用默认配置启动
-ccode run
+# 启动CCR服务
+ccode ccr start
 
-# 使用指定配置启动
-ccode run anyrouter
+# 查看服务状态
+ccode ccr status
+
+# 重启服务（配置更新后）
+ccode ccr restart
+
+# 停止服务
+ccode ccr stop
+
+# 查看服务日志
+ccode ccr logs
+```
+
+### 📊 Provider管理
+
+```bash
+# 列出所有Providers
+ccode provider list
+
+# 添加新Provider
+ccode provider add myProvider
+
+# 查看Provider详情
+ccode provider show myProvider
+
+# 编辑Provider
+ccode provider edit myProvider
+
+# 删除Provider
+ccode provider remove myProvider
 ```
 
 ## 📋 命令参考
 
-### `ccode list`
-列出所有已配置的API服务
+### 🔄 统一接口命令
+
+支持`--group direct|ccr`参数的通用命令：
 
 ```bash
-$ ccode list
-📋 可用配置：
+# 列出配置
+ccode list [--group direct|ccr]
 
-🔧 anyrouter (默认)
-   📍 URL: https://anyrouter.top
-   🔑 Token: your-token...xyz
-   📝 描述: AnyRouter API服务
-   📅 创建: 2025-07-27 15:30:00 UTC
+# 添加配置
+ccode add <name> [--group direct|ccr]
 
-🔧 instcopilot
-   📍 URL: https://instcopilot-api.com
-   🔑 Token: your-token...abc
-   📝 描述: InstCopilot API服务
-   📅 创建: 2025-07-27 15:35:00 UTC
+# 设置默认配置  
+ccode use <name> [--group direct|ccr]
+
+# 启动claude
+ccode run [name] [--group direct|ccr]
+
+# 删除配置
+ccode remove <name> [--group direct|ccr]
 ```
 
-### `ccode add <name>`
-交互式添加新配置
+### 🚀 CCR快捷命令
+
+专门针对CCR模式的便捷命令：
 
 ```bash
-$ ccode add instcopilot
-🔧 添加新配置: instcopilot
-
-🔑 请输入 ANTHROPIC_AUTH_TOKEN (支持各种第三方API格式): your-api-token
-📍 请输入 ANTHROPIC_BASE_URL (如: https://api.anthropic.com): https://instcopilot-api.com
-📝 请输入描述 (可选，直接回车跳过): InstCopilot API服务
-
-✅ 配置 'instcopilot' 添加成功！
+ccode add-ccr <name>      # 添加CCR配置
+ccode list-ccr            # 列出CCR配置
+ccode use-ccr <name>      # 设置默认CCR配置
+ccode run-ccr [name]      # 启动CCR配置
+ccode remove-ccr <name>   # 删除CCR配置
 ```
 
-### `ccode use <name>`
-设置默认配置
+### ⚙️ CCR服务命令
 
 ```bash
-$ ccode use instcopilot
-✅ 已将 'instcopilot' 设为默认配置
+ccode ccr start           # 启动CCR服务
+ccode ccr stop            # 停止CCR服务
+ccode ccr restart         # 重启CCR服务
+ccode ccr status          # 查看服务状态
+ccode ccr logs            # 查看服务日志
 ```
 
-### `ccode run [name]`
-启动claude程序
+### 📊 Provider命令
 
 ```bash
-# 使用默认配置
-$ ccode run
-🚀 使用配置 'anyrouter' 启动 claude...
-📍 API URL: https://anyrouter.top
-
-# 使用指定配置
-$ ccode run instcopilot
-🚀 使用配置 'instcopilot' 启动 claude...
-📍 API URL: https://instcopilot-api.com
-```
-
-### `ccode remove <name>`
-删除配置
-
-```bash
-$ ccode remove oldconfig
-⚠️  确定要删除配置 'oldconfig' 吗？(y/N): y
-✅ 配置 'oldconfig' 已删除
+ccode provider list       # 列出Providers
+ccode provider add <name> # 添加Provider
+ccode provider show <name># 查看Provider详情
+ccode provider edit <name># 编辑Provider
+ccode provider remove <name># 删除Provider
 ```
 
 ## 📁 配置文件
 
-配置文件自动保存在系统配置目录：
-
+### 配置存储位置
 - **Linux/macOS**: `~/.config/ccode/config.json`
 - **Windows**: `%APPDATA%/ccode/config.json`
+- **CCR配置**: `~/.claude-code-router/config.json`
 
-### 配置文件格式
+### 配置文件结构
 
 ```json
 {
-  "version": "1.0",
-  "default": "anyrouter",
-  "profiles": {
-    "anyrouter": {
-      "ANTHROPIC_AUTH_TOKEN": "your-api-token",
-      "ANTHROPIC_BASE_URL": "https://anyrouter.top",
-      "description": "AnyRouter API服务",
-      "created_at": "2025-07-27 15:30:00 UTC"
+  "version": "2.0",
+  "groups": {
+    "direct": {
+      "default_profile": "myapi",
+      "profiles": {
+        "myapi": {
+          "ANTHROPIC_AUTH_TOKEN": "your-token",
+          "ANTHROPIC_BASE_URL": "https://api.example.com",
+          "description": "我的API服务",
+          "created_at": "2025-07-31T10:00:00Z"
+        }
+      }
     },
-    "instcopilot": {
-      "ANTHROPIC_AUTH_TOKEN": "your-another-token",
-      "ANTHROPIC_BASE_URL": "https://instcopilot-api.com",
-      "description": "InstCopilot API服务",
-      "created_at": "2025-07-27 15:35:00 UTC"
+    "ccr": {
+      "default_profile": "production", 
+      "profiles": {
+        "production": {
+          "description": "生产环境CCR配置",
+          "providers": [...],
+          "router": {...},
+          "created_at": "2025-07-31T10:00:00Z"
+        }
+      }
     }
   }
 }
 ```
 
-### 手动编辑配置
-
-你可以直接编辑配置文件来批量添加配置，但建议使用 `ccode add` 命令以确保格式正确。
-
 ## 🔧 工作原理
 
-ccode通过设置环境变量来让claude程序使用不同的API服务：
+### Direct模式
+1. 读取Direct配置中的token和base_url
+2. 设置环境变量：`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_BASE_URL`
+3. 启动claude程序
 
-1. **读取配置**：从配置文件中读取指定的配置
-2. **设置环境变量**：
-   - `ANTHROPIC_AUTH_TOKEN`: 认证令牌
-   - `ANTHROPIC_BASE_URL`: API基础URL
-3. **启动claude**：使用设置的环境变量启动claude程序
+### CCR模式  
+1. 生成CCR配置文件到`~/.claude-code-router/config.json`
+2. 启动CCR服务（监听localhost:3456）
+3. 设置环境变量指向CCR代理
+4. Claude请求通过CCR智能路由到最适合的模型
+
+### 智能路由策略
+
+CCR根据请求特征自动选择模型：
+
+- **默认任务** → `default`配置的模型
+- **后台任务** → 高性价比的`background`模型
+- **推理任务** → 强推理能力的`think`模型  
+- **长上下文** → 大窗口的`longContext`模型（超过阈值时）
+- **网络搜索** → 支持搜索的`webSearch`模型
+
+## 🎯 使用场景
+
+### 个人开发者
+- Direct模式：简单API切换，快速上手
+- CCR模式：多模型测试，成本优化
+
+### 团队协作
+- 标准化多环境配置（开发/测试/生产）
+- 智能路由降低API成本
+- 统一的配置管理和分享
+
+### 企业用户
+- 多Provider容灾和负载均衡
+- 精细化的成本控制
+- 合规和安全的配置管理
 
 ## ⚠️ 重要说明
 
-### 官方支持范围
-- 官方预编译二进制文件基于 Ubuntu 22.04 LTS 构建
-- CI/CD 流程在 Ubuntu 22.04 LTS 环境下测试和验证
-- 技术支持优先处理标准环境下的问题
+### 兼容性
+- **向后兼容**：现有Direct模式配置无需修改
+- **配置迁移**：自动从v1.0配置格式升级到v2.0
+- **CCR依赖**：CCR模式需要npm环境，但会自动管理依赖
 
-### 其他环境使用
-- 其他Linux发行版请从源码编译：`cargo build --release`
-- 编译环境要求：Rust 1.70+、现代C编译器
-- 运行时兼容性：支持大多数现代Linux发行版
+### 系统要求
+- **官方支持**：Ubuntu 22.04 LTS（CI/CD标准环境）
+- **兼容性测试**：Windows、macOS、其他Linux发行版
+- **运行时要求**：现代Linux发行版，glibc 2.31+
 
-### 使用注意事项
-- 确保claude程序已安装并在PATH中
-- 支持各种第三方API token格式，无格式限制
-- URL必须以 `http://` 或 `https://` 开头
-- 首次添加的配置会自动设为默认配置
-- 删除默认配置时会自动选择其他配置作为新默认
+### 安全注意事项
+- API密钥加密存储（计划中）
+- 配置文件权限控制
+- CCR服务默认仅监听localhost
 
 ## 📊 构建状态
 
 | 平台 | 状态 | 说明 |
 |------|------|------|
-| **持续集成** | [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions) | 代码质量检查、测试、安全扫描 (Ubuntu 22.04 LTS) |
-| **自动发布** | [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions) | 跨平台二进制文件构建与发布 (Ubuntu 22.04 LTS) |
-| **Linux (Ubuntu 22.04 LTS)** | ✅ 官方支持 | CI/CD和发布的标准环境 |
-| **其他Linux发行版** | ⚠️ 社区支持 | 需要用户自行从源码编译 |
-| **Windows** | ✅ 支持 | 跨平台兼容测试 |
-| **macOS** | ✅ 支持 | Intel + Apple Silicon |
+| **持续集成** | [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions) | 代码质量、测试、安全扫描 |
+| **自动发布** | [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions) | 跨平台二进制构建发布 |
+| **Linux (Ubuntu 22.04)** | ✅ 官方支持 | CI/CD标准环境 |
+| **其他Linux发行版** | ⚠️ 社区支持 | 需要从源码编译 |
+| **Windows/macOS** | ✅ 支持 | 跨平台兼容测试 |
 
-### 🔧 技术栈
+## 🔧 技术栈
 
+### 核心技术
 - **语言**: Rust 2024 Edition
 - **最低版本**: Rust 1.70+
-- **测试覆盖**: 11 个单元测试
+- **CLI框架**: clap 4.x (derive API)
+- **异步运行时**: tokio (CCR服务管理)
+- **HTTP客户端**: reqwest (CCR API交互)
+
+### 依赖管理
+- **序列化**: serde + serde_json
+- **目录处理**: dirs (跨平台)
+- **时间处理**: chrono
+- **错误处理**: anyhow
+- **系统信息**: sysinfo
+
+### 质量保证
+- **测试覆盖**: 单元测试 + 集成测试
 - **代码质量**: Zero warnings (clippy + rustfmt)
 - **安全扫描**: cargo-audit 自动检查
+- **CI/CD**: GitHub Actions 全平台构建
 
 ## 🛠️ 开发
 
@@ -261,21 +390,16 @@ ccode通过设置环境变量来让claude程序使用不同的API服务：
 
 ```
 src/
-├── main.rs          # CLI入口和命令路由
-├── config.rs        # 配置文件管理
-├── commands.rs      # 命令实现
-└── error.rs         # 错误处理
+├── main.rs           # CLI入口和命令路由
+├── commands.rs       # 命令实现逻辑
+├── config.rs         # 配置数据结构和管理
+├── ccr_config.rs     # CCR配置文件管理
+├── ccr_manager.rs    # CCR服务生命周期管理
+├── error.rs          # 统一错误处理
+└── lib.rs            # 库入口模块导出
 ```
 
-### 依赖项
-
-- `serde` + `serde_json`: JSON序列化
-- `clap`: 命令行参数解析
-- `dirs`: 跨平台目录处理
-- `chrono`: 时间戳处理
-- `anyhow`: 错误处理
-
-### 编译
+### 开发命令
 
 ```bash
 # 开发构建
@@ -286,52 +410,36 @@ cargo build --release
 
 # 运行测试
 cargo test
-```
 
-### 🧪 质量检查
+# 代码格式化（提交前必须）
+cargo fmt
 
-本地运行与CI相同的检查：
-
-```bash
-# 代码格式检查
-cargo fmt --check
-
-# 代码质量检查（零警告）
+# 代码质量检查（零警告要求）
 cargo clippy -- -D warnings
 
-# 运行所有测试
-cargo test
-
 # 安全漏洞扫描
-cargo install cargo-audit
 cargo audit
 
-# 完整的CI检查流程
+# 完整CI检查流程
 cargo fmt --check && \
 cargo clippy -- -D warnings && \
 cargo test && \
 cargo build --release
 ```
 
-### 🔄 CI/CD 流程
+### 🔄 CI/CD流程
 
-项目使用 GitHub Actions 实现自动化：
-
-- **🔍 持续集成**: 每次 push 和 PR 都会触发
-  - 代码格式检查 (rustfmt)
-  - 代码质量检查 (clippy)
+- **🔍 持续集成**: 每次push和PR触发
+  - 代码格式检查(rustfmt)
+  - 代码质量检查(clippy)
   - 单元测试执行
-  - 跨平台构建验证 (Ubuntu 22.04 LTS, Windows, macOS)
-  - 安全漏洞扫描 (cargo-audit)
+  - 跨平台构建验证
+  - 安全漏洞扫描(cargo-audit)
 
-- **🚀 自动发布**: git tag 推送时触发
-  - 多平台二进制构建 (5个目标平台，Linux使用Ubuntu 22.04 LTS)
-  - GitHub Releases 自动创建
+- **🚀 自动发布**: git tag推送触发
+  - 多平台二进制构建
+  - GitHub Releases自动创建  
   - 源码归档和资产上传
-
-- **🔧 依赖管理**: Dependabot 自动维护
-  - 每周检查 Rust 依赖更新
-  - GitHub Actions 版本更新
 
 ## 📄 许可证
 
@@ -341,6 +449,19 @@ cargo build --release
 
 欢迎提交Issue和Pull Request！
 
+### 贡献指南
+1. Fork项目仓库
+2. 创建功能分支
+3. 提交更改（记得`cargo fmt`）
+4. 推送到分支
+5. 创建Pull Request
+
+### 开发规范
+- 遵循Rust官方代码风格
+- 保持零clippy警告
+- 添加适当的测试覆盖
+- 更新相关文档
+
 ---
 
-**最后更新**: 2025-07-29
+**最后更新**: 2025-07-31 | **架构版本**: v2.0（双模式架构）

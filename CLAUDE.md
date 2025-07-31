@@ -4,10 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-`ccode` 是一个用 Rust 编写的 Claude Code 环境切换工具，支持两种API配置模式：
+`ccode` 是一个用 Rust 编写的 Claude Code 环境管理工具，采用创新的双模式架构设计：
 
-- **Direct 模式**：直接配置 ANTHROPIC_AUTH_TOKEN 和 ANTHROPIC_BASE_URL
-- **CCR 模式**：通过 Claude Code Router 进行智能模型路由和负载均衡
+### 🎯 核心架构
+
+- **Direct 模式**：传统的简单API配置方式（向后兼容）
+  - 直接配置 ANTHROPIC_AUTH_TOKEN 和 ANTHROPIC_BASE_URL
+  - 适合单一API服务的简单切换需求
+  - 零学习成本，即插即用
+
+- **CCR 模式**：集成 Claude Code Router 的智能路由系统（新特性）
+  - 多Provider支持：OpenRouter、DeepSeek、Gemini、Qwen等
+  - 智能路由：根据任务类型自动选择最适合的模型
+  - 负载均衡：多模型间的智能分配和容灾
+  - 成本优化：后台任务使用高性价比模型，推理任务使用强推理模型
+
+### 🚀 CCR模式优势
+
+1. **智能场景路由**
+   - `default`: 日常任务的平衡选择
+   - `background`: 后台任务的经济型模型
+   - `think`: 推理密集任务的强推理模型
+   - `longContext`: 长上下文的大窗口模型
+   - `webSearch`: 网络搜索的专用模型
+
+2. **企业级特性**
+   - 多Provider容灾和高可用
+   - 请求转换适配不同API格式
+   - 服务管理和监控
+   - 配置热更新和版本管理
+
+3. **开发体验**
+   - 自动依赖管理（npm包安装）
+   - 交互式配置向导
+   - 智能模型推荐
+   - 完整的CLI工具链
 
 ## 开发命令
 
@@ -61,6 +92,7 @@ cargo run -- <subcommand>
 - **异步运行时**：tokio (用于CCR管理)
 - **HTTP客户端**：reqwest (用于CCR API交互)
 - **序列化**：serde + serde_json
+- **系统信息**：sysinfo (进程管理)
 - **其他**：dirs (跨平台目录)、chrono (时间戳)、anyhow (错误处理)
 
 ### 核心模块结构
@@ -70,6 +102,7 @@ src/
 ├── main.rs          # CLI入口，命令路由和参数解析
 ├── commands.rs      # 所有命令的具体实现逻辑
 ├── config.rs        # 配置文件管理和数据结构定义
+├── ccr_config.rs    # CCR配置文件直接管理器
 ├── ccr_manager.rs   # CCR服务生命周期管理
 ├── error.rs         # 统一错误处理
 └── lib.rs           # 库入口，模块导出
@@ -114,6 +147,13 @@ CCR (Claude Code Router) 通过以下方式集成：
 - `ccr restart` - 重启CCR服务
 - `ccr status` - 查看服务状态
 - `ccr logs` - 查看服务日志
+
+### Provider管理（新增）
+- `provider list` - 列出所有Providers
+- `provider add <name>` - 添加新Provider
+- `provider remove <name>` - 删除Provider
+- `provider show <name>` - 显示Provider详情
+- `provider edit <name>` - 编辑Provider配置
 
 ## 开发注意事项
 
