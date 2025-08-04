@@ -84,7 +84,7 @@ jobs:
           cp target/${{ matrix.target }}/release/ccode.exe ${{ matrix.name }}
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.name }}
           body: |
@@ -131,7 +131,7 @@ jobs:
           git archive --format=tar.gz --prefix=ccode-${{ github.ref_name }}/ HEAD > ccode-${{ github.ref_name }}-source.tar.gz
 
       - name: Upload Source Archive
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ccode-${{ github.ref_name }}-source.tar.gz
         env:
