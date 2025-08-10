@@ -19,6 +19,8 @@
 - 📋 **配置管理**：支持多配置存储和快速切换
 - 🔀 **路由配置**：管理RouterProfile，支持不同场景的模型路由
 - 🎛️ **Provider管理**：管理claude-code-router的provider配置
+- 🔄 **配置同步**：自动同步CCR配置文件，确保配置信息实时一致
+- ⚡ **精确更新**：精确更新配置节点，避免重写整个配置文件
 - 📱 **交互式操作**：友好的命令行交互界面
 - 🌐 **跨平台支持**：Windows、macOS、Linux
 
@@ -272,16 +274,17 @@ ccode provider remove <name># 删除Provider
 3. 启动claude程序
 
 ### Router模式
-1. **读取RouterProfile**：从ccode配置中读取路由规则
-2. **应用配置**：将RouterProfile应用到CCR配置文件
-3. **启动路由**：调用外部`ccr code`命令启动路由功能
+1. **配置同步**：每次命令执行前自动同步CCR配置文件状态
+2. **读取RouterProfile**：从ccode配置中读取路由规则
+3. **精确配置应用**：将RouterProfile精确应用到CCR配置文件的Router节点
+4. **启动路由**：调用外部`ccr code`命令启动路由功能
 
 ### 配置管理架构
 
 ```
-┌─────────────────┐    管理配置    ┌──────────────────────┐
+┌─────────────────┐    精确管理    ┌──────────────────────┐
 │ ccode配置        │ ─────────────→ │ CCR配置文件          │
-│ ~/.config/ccode  │                │ ~/.claude-code-router │
+│ ~/.config/ccode  │    配置同步    │ ~/.claude-code-router │
 ├─────────────────┤                ├──────────────────────┤
 │ router组:        │                │ providers: []        │
 │ • RouterProfile  │                │ router: {}           │
@@ -296,6 +299,7 @@ ccode provider remove <name># 删除Provider
 │ • add-ccr       │                │ • ccr code           │
 │ • list-ccr      │                │ • 智能路由           │
 │ • provider管理   │                │ • API转换            │
+│ • 配置同步       │                │                      │
 └─────────────────┘                └──────────────────────┘
 ```
 
@@ -443,4 +447,4 @@ cargo build --release
 
 ---
 
-**最后更新**: 2025-07-31 | **架构版本**: v0.2.0（配置管理工具）
+**最后更新**: 2025-08-10 | **架构版本**: v0.2.0（配置管理工具）

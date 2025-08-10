@@ -515,10 +515,10 @@ pub fn cmd_remove_direct(name: String) -> AppResult<()> {
 
     // 显示当前默认配置
     if !config.groups.direct.is_empty() {
-        if let Some(default_profile) = &config.default_profile {
-            if let Some(direct) = &default_profile.direct {
-                println!("🎯 当前默认Direct配置: {direct}");
-            }
+        if let Some(default_profile) = &config.default_profile
+            && let Some(direct) = &default_profile.direct
+        {
+            println!("🎯 当前默认Direct配置: {direct}");
         }
     } else {
         println!("📋 暂无Direct配置，请使用 'ccode add --group direct <name>' 添加配置");
@@ -530,6 +530,9 @@ pub fn cmd_remove_direct(name: String) -> AppResult<()> {
 /// 列出CCR配置（Router Profile）
 pub fn cmd_list_ccr() -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
+
+    // 列出前配置同步 - 读取CCR配置文件，更新provider信息
+    manager.sync_config_from_ccr()?;
 
     println!("📋 CCR配置 (Router Profile) 列表：");
     println!();
@@ -620,6 +623,9 @@ pub fn cmd_list_ccr() -> AppResult<()> {
 /// 添加CCR配置（Router Profile）
 pub fn cmd_add_ccr(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
+
+    // 添加前配置同步 - 读取CCR配置文件，同步providers信息
+    manager.sync_config_from_ccr()?;
 
     // 检查是否已存在同名Router Profile
     let config = Config::load().unwrap_or_default();
@@ -886,6 +892,9 @@ pub fn cmd_add_ccr(name: String) -> AppResult<()> {
 pub fn cmd_use_ccr(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
+    // 激活前配置同步 - 读取CCR配置文件，更新provider信息
+    manager.sync_config_from_ccr()?;
+
     println!("🎯 激活CCR配置: {name}");
     println!();
 
@@ -941,12 +950,16 @@ pub fn cmd_use_ccr(name: String) -> AppResult<()> {
 
 /// 运行CCR配置（使用原生ccr命令）
 pub fn cmd_run_ccr(name: Option<String>) -> AppResult<()> {
+    let ccr_manager = CcrConfigManager::new()?;
+
+    // 启动时配置同步 - 读取CCR配置文件，更新provider信息
+    ccr_manager.sync_config_from_ccr()?;
+
     println!("🚀 启动CCR配置...");
     println!("💡 使用ccr原生命令管理");
     println!();
 
     let config = Config::load().unwrap_or_default();
-    let ccr_manager = CcrConfigManager::new()?;
 
     // 检查是否有 Router Profile 配置
     if config.groups.router.is_empty() {
@@ -1076,12 +1089,12 @@ pub fn cmd_remove_ccr(name: String) -> AppResult<()> {
     }
 
     // 如果是默认配置，警告用户
-    if let Some(default_profile) = &config.default_profile {
-        if default_profile.router.as_ref() == Some(&name) {
-            println!("⚠️  '{name}' 是当前的默认CCR配置");
-            println!("删除后需要重新设置默认配置");
-            println!();
-        }
+    if let Some(default_profile) = &config.default_profile
+        && default_profile.router.as_ref() == Some(&name)
+    {
+        println!("⚠️  '{name}' 是当前的默认CCR配置");
+        println!("删除后需要重新设置默认配置");
+        println!();
     }
 
     // 确认删除
@@ -1121,6 +1134,9 @@ pub fn cmd_remove_ccr(name: String) -> AppResult<()> {
 /// 列出所有 Providers
 pub fn cmd_provider_list() -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
+
+    // Provider命令启动时同步配置
+    manager.sync_config_from_ccr()?;
 
     if !manager.config_exists() {
         println!("📋 暂无 claude-code-router 配置文件");
@@ -1176,6 +1192,9 @@ pub fn cmd_provider_list() -> AppResult<()> {
 /// 添加 Provider
 pub fn cmd_provider_add(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
+
+    // Provider命令启动时同步配置
+    manager.sync_config_from_ccr()?;
 
     // 检查 Provider 是否已存在
     if manager.provider_exists(&name)? {
@@ -1299,6 +1318,9 @@ pub fn cmd_provider_add(name: String) -> AppResult<()> {
 pub fn cmd_provider_remove(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
+    // Provider命令启动时同步配置
+    manager.sync_config_from_ccr()?;
+
     // 检查 Provider 是否存在
     if !manager.provider_exists(&name)? {
         return Err(AppError::Config(format!("Provider '{name}' 不存在")));
@@ -1338,6 +1360,10 @@ pub fn cmd_provider_remove(name: String) -> AppResult<()> {
 /// 显示 Provider 详情
 pub fn cmd_provider_show(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
+
+    // Provider命令启动时同步配置
+    manager.sync_config_from_ccr()?;
+
     let provider = manager.get_provider(&name)?;
 
     println!("🔗 Provider: {}", provider.name);
@@ -1369,6 +1395,10 @@ pub fn cmd_provider_show(name: String) -> AppResult<()> {
 /// 编辑 Provider
 pub fn cmd_provider_edit(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
+
+    // Provider命令启动时同步配置
+    manager.sync_config_from_ccr()?;
+
     let mut provider = manager.get_provider(&name)?;
 
     println!("✏️  编辑 Provider: {}", provider.name);

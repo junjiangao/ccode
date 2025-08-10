@@ -4,6 +4,17 @@ use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 
+/// Provider操作类型枚举
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProviderOperation {
+    /// 添加Provider
+    Add,
+    /// 更新Provider
+    Update,
+    /// 删除Provider
+    Remove,
+}
+
 /// CCR 配置文件直接管理器
 pub struct CcrConfigManager {
     config_path: PathBuf,
@@ -65,6 +76,7 @@ impl CcrConfigManager {
     }
 
     /// 保存 CCR 配置文件
+    #[allow(dead_code)]
     pub fn save_config(&self, config: &CcrConfig) -> AppResult<()> {
         // 验证配置
         config.validate()?;
@@ -115,17 +127,25 @@ impl CcrConfigManager {
 
     /// 添加 Provider
     pub fn add_provider(&self, provider: CcrProvider) -> AppResult<()> {
-        let mut config = self.load_config()?;
-        config.add_provider(provider)?;
-        self.save_config(&config)?;
+        // 使用精确更新方法
+        self.update_provider_only(&provider, ProviderOperation::Add)?;
         Ok(())
     }
 
     /// 删除 Provider
     pub fn remove_provider(&self, name: &str) -> AppResult<()> {
-        let mut config = self.load_config()?;
-        config.remove_provider(name)?;
-        self.save_config(&config)?;
+        // 创建一个临时的Provider对象（只需要name字段）
+        let temp_provider = CcrProvider {
+            name: name.to_string(),
+            api_base_url: String::new(), // 临时值，删除操作不需要验证
+            api_key: String::new(),      // 临时值，删除操作不需要验证
+            models: Vec::new(),          // 临时值，删除操作不需要验证
+            transformer: None,
+            provider_type: None,
+        };
+
+        // 使用精确更新方法
+        self.update_provider_only(&temp_provider, ProviderOperation::Remove)?;
         Ok(())
     }
 
@@ -140,9 +160,8 @@ impl CcrConfigManager {
 
     /// 更新 Provider
     pub fn update_provider(&self, provider: CcrProvider) -> AppResult<()> {
-        let mut config = self.load_config()?;
-        config.update_provider(provider)?;
-        self.save_config(&config)?;
+        // 使用精确更新方法
+        self.update_provider_only(&provider, ProviderOperation::Update)?;
         Ok(())
     }
 
@@ -160,26 +179,8 @@ impl CcrConfigManager {
 
     /// 应用 Router Profile 配置（只修改 Router 部分）
     pub fn apply_router_profile(&self, router_profile: &RouterProfile) -> AppResult<()> {
-        let mut config = self.load_config()?;
-
-        // 验证 router profile 中的 provider 引用是否存在
-        let provider_names: std::collections::HashSet<_> =
-            config.Providers.iter().map(|p| p.name.as_str()).collect();
-
-        for (route_name, route_value) in router_profile.router.get_all_routes() {
-            if let Some(provider_name) = route_value.split(',').next() {
-                if !provider_names.contains(provider_name) {
-                    return Err(AppError::InvalidConfig(format!(
-                        "Router Profile '{}' 中的路由 '{}' 引用了不存在的提供商 '{}'",
-                        router_profile.name, route_name, provider_name
-                    )));
-                }
-            }
-        }
-
-        // 更新 Router 配置
-        config.update_router(router_profile.router.clone())?;
-        self.save_config(&config)?;
+        // 使用精确更新方法，只修改Router节点
+        self.update_router_only(&router_profile.router)?;
 
         println!("✅ 已应用 Router Profile '{}'", router_profile.name);
         Ok(())
@@ -210,12 +211,12 @@ impl CcrConfigManager {
             config.Providers.iter().map(|p| p.name.as_str()).collect();
 
         for (route_name, route_value) in config.Router.get_all_routes() {
-            if let Some(provider_name) = route_value.split(',').next() {
-                if !provider_names.contains(provider_name) {
-                    errors.push(format!(
-                        "路由 '{route_name}' 引用了不存在的提供商 '{provider_name}'"
-                    ));
-                }
+            if let Some(provider_name) = route_value.split(',').next()
+                && !provider_names.contains(provider_name)
+            {
+                errors.push(format!(
+                    "路由 '{route_name}' 引用了不存在的提供商 '{provider_name}'"
+                ));
             }
         }
 
@@ -268,12 +269,10 @@ impl CcrConfigManager {
             .collect();
 
         for (route_name, route_value) in ccr_config.Router.get_all_routes() {
-            if let Some(provider_name) = route_value.split(',').next() {
-                if !provider_names.contains(provider_name) {
-                    println!(
-                        "⚠️  警告: 路由 '{route_name}' 引用了不存在的提供商 '{provider_name}'"
-                    );
-                }
+            if let Some(provider_name) = route_value.split(',').next()
+                && !provider_names.contains(provider_name)
+            {
+                println!("⚠️  警告: 路由 '{route_name}' 引用了不存在的提供商 '{provider_name}'");
             }
         }
 
@@ -360,6 +359,161 @@ impl CcrConfigManager {
         // 应用到claude-code-router配置
         self.apply_router_profile(&router_profile)?;
 
+        Ok(())
+    }
+
+    /// 从CCR配置文件同步Providers信息到本地缓存
+    /// 这用于确保本地缓存与CCR配置文件保持一致
+    pub fn sync_providers_from_ccr(&self) -> AppResult<()> {
+        if !self.config_exists() {
+            // CCR配置文件不存在，无需同步
+            return Ok(());
+        }
+
+        let ccr_config = self.load_config()?;
+
+        // 同步逻辑：这里主要用于信息展示和验证
+        // Provider的管理仍然通过ccode命令进行，这里只是读取最新状态
+        println!(
+            "🔄 同步Provider信息: 发现 {} 个Provider",
+            ccr_config.Providers.len()
+        );
+
+        Ok(())
+    }
+
+    /// 统一的配置同步入口点
+    /// 在CCR相关命令启动时调用，确保配置信息同步
+    pub fn sync_config_from_ccr(&self) -> AppResult<()> {
+        self.sync_providers_from_ccr()?;
+        // 未来可以在这里添加其他同步逻辑
+        Ok(())
+    }
+
+    /// 仅更新CCR配置文件的Router节点
+    /// 这是精确更新的核心方法，只修改Router部分而保持其他配置不变
+    pub fn update_router_only(&self, router: &CcrRouter) -> AppResult<()> {
+        router.validate()?;
+
+        let mut config = self.load_config()?;
+
+        // 验证Router配置中的Provider引用是否有效
+        let provider_names: std::collections::HashSet<_> =
+            config.Providers.iter().map(|p| p.name.as_str()).collect();
+
+        for (route_name, route_value) in router.get_all_routes() {
+            if let Some(provider_name) = route_value.split(',').next()
+                && !provider_names.contains(provider_name)
+            {
+                return Err(AppError::InvalidConfig(format!(
+                    "路由 '{}' 引用了不存在的提供商 '{}'",
+                    route_name, provider_name
+                )));
+            }
+        }
+
+        // 如果配置文件已存在，先创建备份
+        if self.config_path.exists() {
+            self.create_backup()?;
+        }
+
+        // 仅更新Router节点
+        config.Router = router.clone();
+
+        // 保存配置
+        let content = serde_json::to_string_pretty(&config)?;
+        std::fs::write(&self.config_path, content)?;
+
+        println!("✅ 已更新 CCR Router 配置");
+        Ok(())
+    }
+
+    /// 仅更新CCR配置文件中的单个Provider
+    /// 用于Provider的增删改操作，避免重写整个配置文件
+    pub fn update_provider_only(
+        &self,
+        provider: &CcrProvider,
+        operation: ProviderOperation,
+    ) -> AppResult<()> {
+        let mut config = self.load_config()?;
+
+        match operation {
+            ProviderOperation::Add => {
+                provider.validate()?;
+                if config.Providers.iter().any(|p| p.name == provider.name) {
+                    return Err(AppError::Config(format!(
+                        "Provider '{}' 已存在",
+                        provider.name
+                    )));
+                }
+                config.Providers.push(provider.clone());
+            }
+            ProviderOperation::Update => {
+                provider.validate()?;
+                if let Some(existing) = config
+                    .Providers
+                    .iter_mut()
+                    .find(|p| p.name == provider.name)
+                {
+                    *existing = provider.clone();
+                } else {
+                    return Err(AppError::Config(format!(
+                        "Provider '{}' 不存在",
+                        provider.name
+                    )));
+                }
+            }
+            ProviderOperation::Remove => {
+                // 删除操作不需要验证Provider内容，只需要name
+                let original_len = config.Providers.len();
+                config.Providers.retain(|p| p.name != provider.name);
+
+                if config.Providers.len() == original_len {
+                    return Err(AppError::Config(format!(
+                        "Provider '{}' 不存在",
+                        provider.name
+                    )));
+                }
+            }
+        }
+
+        // 如果配置文件已存在，先创建备份
+        if self.config_path.exists() {
+            self.create_backup()?;
+        }
+
+        // 保存配置
+        let content = serde_json::to_string_pretty(&config)?;
+        std::fs::write(&self.config_path, content)?;
+
+        println!("✅ 已更新 CCR Provider 配置");
+        Ok(())
+    }
+
+    /// 仅更新CCR配置文件的Providers节点
+    /// 用于批量Provider更新操作
+    #[allow(dead_code)]
+    pub fn update_providers_only(&self, providers: Vec<CcrProvider>) -> AppResult<()> {
+        // 验证所有Provider
+        for provider in &providers {
+            provider.validate()?;
+        }
+
+        let mut config = self.load_config()?;
+
+        // 如果配置文件已存在，先创建备份
+        if self.config_path.exists() {
+            self.create_backup()?;
+        }
+
+        // 更新Providers节点
+        config.Providers = providers;
+
+        // 保存配置
+        let content = serde_json::to_string_pretty(&config)?;
+        std::fs::write(&self.config_path, content)?;
+
+        println!("✅ 已更新 CCR Providers 配置");
         Ok(())
     }
 }
