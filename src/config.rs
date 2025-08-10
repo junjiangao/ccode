@@ -91,11 +91,11 @@ impl ProviderType {
                     }
                 }
 
-                if !model_specific.is_empty() {
-                    if let Some(obj) = transformer.as_object_mut() {
-                        for (key, value) in model_specific {
-                            obj.insert(key, value);
-                        }
+                if !model_specific.is_empty()
+                    && let Some(obj) = transformer.as_object_mut()
+                {
+                    for (key, value) in model_specific {
+                        obj.insert(key, value);
                     }
                 }
 
@@ -120,11 +120,11 @@ impl ProviderType {
                     }
                 }
 
-                if !model_specific.is_empty() {
-                    if let Some(obj) = transformer.as_object_mut() {
-                        for (key, value) in model_specific {
-                            obj.insert(key, value);
-                        }
+                if !model_specific.is_empty()
+                    && let Some(obj) = transformer.as_object_mut()
+                {
+                    for (key, value) in model_specific {
+                        obj.insert(key, value);
                     }
                 }
 
@@ -275,12 +275,13 @@ impl CcrRouter {
         ];
 
         for (name, route) in routes.iter() {
-            if let Some(route_value) = route {
-                if !route_value.trim().is_empty() && !route_value.contains(',') {
-                    return Err(AppError::InvalidConfig(format!(
-                        "{name}路由配置格式无效，应为'provider,model'格式"
-                    )));
-                }
+            if let Some(route_value) = route
+                && !route_value.trim().is_empty()
+                && !route_value.contains(',')
+            {
+                return Err(AppError::InvalidConfig(format!(
+                    "{name}路由配置格式无效，应为'provider,model'格式"
+                )));
             }
         }
 
@@ -415,6 +416,7 @@ impl CcrConfig {
     }
 
     /// 验证配置有效性
+    #[allow(dead_code)]
     pub fn validate(&self) -> AppResult<()> {
         // 验证 Providers 不为空
         if self.Providers.is_empty() {
@@ -434,12 +436,12 @@ impl CcrConfig {
             self.Providers.iter().map(|p| p.name.as_str()).collect();
 
         for (route_name, route_value) in self.Router.get_all_routes() {
-            if let Some(provider_name) = route_value.split(',').next() {
-                if !provider_names.contains(provider_name) {
-                    return Err(AppError::InvalidConfig(format!(
-                        "路由'{route_name}'中的提供商'{provider_name}'不存在"
-                    )));
-                }
+            if let Some(provider_name) = route_value.split(',').next()
+                && !provider_names.contains(provider_name)
+            {
+                return Err(AppError::InvalidConfig(format!(
+                    "路由'{route_name}'中的提供商'{provider_name}'不存在"
+                )));
             }
         }
 
@@ -447,6 +449,7 @@ impl CcrConfig {
     }
 
     /// 添加 Provider
+    #[allow(dead_code)]
     pub fn add_provider(&mut self, provider: CcrProvider) -> AppResult<()> {
         // 检查名称是否重复
         if self.Providers.iter().any(|p| p.name == provider.name) {
@@ -462,6 +465,7 @@ impl CcrConfig {
     }
 
     /// 删除 Provider
+    #[allow(dead_code)]
     pub fn remove_provider(&mut self, name: &str) -> AppResult<()> {
         let original_len = self.Providers.len();
         self.Providers.retain(|p| p.name != name);
@@ -479,6 +483,7 @@ impl CcrConfig {
     }
 
     /// 更新 Provider
+    #[allow(dead_code)]
     pub fn update_provider(&mut self, provider: CcrProvider) -> AppResult<()> {
         provider.validate()?;
 
@@ -494,6 +499,7 @@ impl CcrConfig {
     }
 
     /// 更新 Router 配置
+    #[allow(dead_code)]
     pub fn update_router(&mut self, router: CcrRouter) -> AppResult<()> {
         router.validate()?;
         self.Router = router;
@@ -645,10 +651,10 @@ impl Config {
                     direct: Some(old_default),
                     router: None,
                 });
-            } else if let Some(ref mut default_profile) = self.default_profile {
-                if default_profile.direct.is_none() {
-                    default_profile.direct = Some(old_default);
-                }
+            } else if let Some(ref mut default_profile) = self.default_profile
+                && default_profile.direct.is_none()
+            {
+                default_profile.direct = Some(old_default);
             }
         }
 
@@ -713,10 +719,10 @@ impl Config {
         self.groups.direct.remove(name);
 
         // 如果删除的是默认配置，选择新的默认配置
-        if let Some(ref mut default_profile) = self.default_profile {
-            if default_profile.direct.as_ref() == Some(&name.to_string()) {
-                default_profile.direct = self.groups.direct.keys().next().cloned();
-            }
+        if let Some(ref mut default_profile) = self.default_profile
+            && default_profile.direct.as_ref() == Some(&name.to_string())
+        {
+            default_profile.direct = self.groups.direct.keys().next().cloned();
         }
 
         Ok(())
@@ -843,10 +849,10 @@ impl Config {
         self.groups.router.remove(name);
 
         // 如果删除的是默认配置，选择新的默认配置
-        if let Some(ref mut default_profile) = self.default_profile {
-            if default_profile.router.as_ref() == Some(&name.to_string()) {
-                default_profile.router = self.groups.router.keys().next().cloned();
-            }
+        if let Some(ref mut default_profile) = self.default_profile
+            && default_profile.router.as_ref() == Some(&name.to_string())
+        {
+            default_profile.router = self.groups.router.keys().next().cloned();
         }
 
         Ok(())
