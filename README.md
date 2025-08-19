@@ -143,23 +143,23 @@ ccode run-ccr production
 
 ### 🔄 统一命令
 
-支持`--group direct|ccr`参数的通用命令：
+支持`--group direct|router`参数的通用命令：
 
 ```bash
 # 列出配置
-ccode list [--group direct|ccr]
+ccode list [--group direct|router]
 
 # 添加配置
-ccode add <name> [--group direct|ccr]
+ccode add <name> [--group direct|router]
 
 # 设置默认配置  
-ccode use <name> [--group direct|ccr]
+ccode use <name> [--group direct|router]
 
 # 启动claude
-ccode run [name] [--group direct|ccr]
+ccode run [name] [--group direct|router]
 
 # 删除配置
-ccode remove <name> [--group direct|ccr]
+ccode remove <name> [--group direct|router]
 ```
 
 ### 🛠️ Router模式快捷命令
@@ -352,8 +352,6 @@ ccode provider remove <name># 删除Provider
 - **语言**: Rust 2024 Edition
 - **最低版本**: Rust 1.70+
 - **CLI框架**: clap 4.x (derive API)
-- **异步运行时**: tokio (配置管理)
-- **HTTP客户端**: reqwest (外部API交互)
 
 ### 依赖管理
 - **序列化**: serde + serde_json
@@ -445,6 +443,6 @@ cargo build --release
 - 添加适当的测试覆盖
 - 更新相关文档
 
----
+--- 
 
 **最后更新**: 2025-08-10 | **架构版本**: v0.2.0（配置管理工具）
