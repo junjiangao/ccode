@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Direct 模式**：传统的简单API配置方式（向后兼容）。
   - 直接配置 `ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_BASE_URL`。
   - 适合单一API服务的简单切换需求。
+  - **参数透传**：支持直接将参数透传给 `claude` 命令。
 
 - **Router 模式**：通过管理 `RouterProfile` 来支持 `claude-code-router` 的复杂路由配置。
   - **Provider 管理**：支持管理不同的后端服务（如 DeepSeek, Qwen 等）。
@@ -97,7 +98,7 @@ src/
 - `list [--group direct|router]` - 列出指定组配置
 - `add <name> [--group direct|router]` - 添加配置到指定组
 - `use <name> [--group direct|router]` - 设置指定组默认配置
-- `run [name] [--group direct|router]` - 运行指定组配置
+- `run [name] [--group direct|router] [<claude_args>...]` - 运行指定组配置，支持透传参数给claude（仅Direct模式）
 - `remove <name> [--group direct|router]` - 删除指定组配置
 
 ### Router 模式快捷命令
@@ -113,6 +114,44 @@ src/
 - `provider remove <name>` - 删除Provider
 - `provider show <name>` - 显示Provider详情
 - `provider edit <name>` - 编辑Provider配置
+
+## 参数透传功能
+
+### 概述
+`ccode` 支持将额外参数透传给 `claude` 命令，该功能仅在 **Direct 模式** 下可用。
+
+### 使用方式
+支持两种参数透传方式：
+
+1. **直接透传**（推荐用于无冲突参数）
+2. **使用 `--` 分隔符**（用于可能冲突的参数）
+
+```bash
+# 直接透传（适用于大多数情况）
+ccode run [name] [--group direct] <claude_args>...
+
+# 使用 -- 分隔符（避免参数冲突）
+ccode run [name] [--group direct] -- <claude_args>...
+
+# 示例
+ccode run myapi --version                        # 直接透传 ✅
+ccode run myapi code --project myapp             # 直接透传 ✅  
+ccode run myapi -- --help                       # 使用分隔符避免冲突 ✅
+ccode run myapi --help                          # ❌ 会显示ccode帮助而非claude帮助
+```
+
+### 功能特性
+- **双模式支持**：支持直接透传和 `--` 分隔符两种方式
+- **智能冲突处理**：自动识别参数冲突并在提示中说明解决方案
+- **完整透传**：支持所有 `claude` 命令的参数和选项
+- **模式限制**：仅在 Direct 模式下生效，CCR 模式会忽略透传参数并显示警告
+
+### 实现原理
+1. 使用 `trailing_var_arg = true` 解析尾随参数，支持两种使用方式
+2. **直接透传**：参数直接被 clap 收集为尾随参数
+3. **`--` 分隔符**：clap 自动识别并正确处理分隔符后的参数
+4. **冲突检测**：当参数与 ccode 自身参数冲突时，建议使用 `--` 分隔符
+5. 在 Direct 模式下将收集的参数附加到 `claude` 命令执行
 
 ## 开发注意事项
 

@@ -219,7 +219,7 @@ pub fn cmd_use(name: String) -> AppResult<()> {
 }
 
 /// 启动claude程序
-pub fn cmd_run(name: Option<String>) -> AppResult<()> {
+pub fn cmd_run(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> {
     let config = Config::load()?;
 
     let (profile_name, profile) = match name {
@@ -241,6 +241,16 @@ pub fn cmd_run(name: Option<String>) -> AppResult<()> {
     let mut cmd = Command::new("claude");
     cmd.env("ANTHROPIC_AUTH_TOKEN", &profile.anthropic_auth_token);
     cmd.env("ANTHROPIC_BASE_URL", &profile.anthropic_base_url);
+
+    // 添加透传的参数
+    if !claude_args.is_empty() {
+        cmd.args(&claude_args);
+        println!("📄 透传参数: {}", claude_args.join(" "));
+    } else {
+        println!(
+            "💡 提示: 可以直接在命令后添加参数透传给 claude 命令 (例如: ccode run myprofile --version 或 ccode run myprofile -- --help)"
+        );
+    }
 
     match cmd.status() {
         Ok(status) => {
@@ -333,12 +343,24 @@ pub fn cmd_use_with_group(name: String, group: Option<String>) -> AppResult<()> 
 }
 
 /// 运行配置（统一接口）
-pub fn cmd_run_with_group(name: Option<String>, group: Option<String>) -> AppResult<()> {
+pub fn cmd_run_with_group(
+    name: Option<String>,
+    group: Option<String>,
+    claude_args: Vec<String>,
+) -> AppResult<()> {
     match group.as_deref() {
-        Some("direct") => cmd_run_direct(name),
-        Some("ccr") => cmd_run_ccr(name),
+        Some("direct") => cmd_run_direct(name, claude_args),
+        Some("ccr") => {
+            if !claude_args.is_empty() {
+                println!(
+                    "⚠️  注意: CCR 模式不支持透传参数，将忽略: {}",
+                    claude_args.join(" ")
+                );
+            }
+            cmd_run_ccr(name)
+        }
         Some(g) => Err(AppError::Config(format!("未知的配置组: {g}"))),
-        None => cmd_run(name), // 向后兼容
+        None => cmd_run(name, claude_args), // 向后兼容，默认使用direct模式
     }
 }
 
@@ -488,8 +510,8 @@ pub fn cmd_use_direct(name: String) -> AppResult<()> {
 }
 
 /// 运行Direct配置
-pub fn cmd_run_direct(name: Option<String>) -> AppResult<()> {
-    cmd_run(name) // 复用现有的逻辑
+pub fn cmd_run_direct(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> {
+    cmd_run(name, claude_args) // 复用现有的逻辑
 }
 
 /// 删除Direct配置
