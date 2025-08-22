@@ -21,6 +21,7 @@
 - 🎛️ **Provider管理**：管理claude-code-router的provider配置
 - 🔄 **配置同步**：自动同步CCR配置文件，确保配置信息实时一致
 - ⚡ **精确更新**：精确更新配置节点，避免重写整个配置文件
+- 🚀 **参数透传**：支持将参数透传给claude命令（仅Direct模式）
 - 📱 **交互式操作**：友好的命令行交互界面
 - 🌐 **跨平台支持**：Windows、macOS、Linux
 
@@ -98,6 +99,12 @@ ccode use myapi --group direct
 
 # 启动claude
 ccode run myapi --group direct
+
+# 启动claude并透传参数（仅Direct模式支持）
+ccode run myapi --group direct --version
+ccode run myapi code --project myapp
+# 注意：对于可能冲突的参数（如--help），需要使用--分隔符：
+ccode run myapi -- --help
 ```
 
 ### 🛠️ Router模式（路由配置）
@@ -157,6 +164,14 @@ ccode use <name> [--group direct|router]
 
 # 启动claude
 ccode run [name] [--group direct|router]
+
+# 启动claude并透传参数（仅Direct模式支持）
+ccode run [name] [--group direct] <claude_args>
+
+# 示例：
+# ccode run myapi --version                    # 直接透传
+# ccode run myapi --group direct code         # 启动code模式
+# ccode run myapi -- --help                   # 使用--分隔符避免冲突
 
 # 删除配置
 ccode remove <name> [--group direct|router]
@@ -271,7 +286,8 @@ ccode provider remove <name># 删除Provider
 ### Direct模式
 1. 读取Direct配置中的token和base_url
 2. 设置环境变量：`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_BASE_URL`
-3. 启动claude程序
+3. 可选择透传额外参数给claude命令
+4. 启动claude程序
 
 ### Router模式
 1. **配置同步**：每次命令执行前自动同步CCR配置文件状态

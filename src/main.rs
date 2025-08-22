@@ -49,6 +49,9 @@ enum Commands {
         /// 指定配置组 (direct|ccr)
         #[arg(long)]
         group: Option<String>,
+        /// 透传给claude的参数 (仅Direct模式支持，例如: run myprofile --version 或 run myprofile -- --help)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        claude_args: Vec<String>,
     },
     /// 删除配置
     Remove {
@@ -130,7 +133,11 @@ fn main() -> AppResult<()> {
         Commands::List { group } => commands::cmd_list_with_group(group),
         Commands::Add { name, group } => commands::cmd_add_with_group(name, group),
         Commands::Use { name, group } => commands::cmd_use_with_group(name, group),
-        Commands::Run { name, group } => commands::cmd_run_with_group(name, group),
+        Commands::Run {
+            name,
+            group,
+            claude_args,
+        } => commands::cmd_run_with_group(name, group, claude_args),
         Commands::Remove { name, group } => commands::cmd_remove_with_group(name, group),
 
         // CCR快捷命令
