@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 🎯 核心架构
 
 - **Direct 模式**：传统的简单API配置方式（向后兼容）。
-  - 直接配置 `ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_BASE_URL`。
+  - 直接配置 `ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_BASE_URL`（必需）。
+  - 可选配置 `ANTHROPIC_MODEL` 和 `ANTHROPIC_SMALL_FAST_MODEL` 实现精确模型控制。
   - 适合单一API服务的简单切换需求。
   - **参数透传**：支持直接将参数透传给 `claude` 命令。
 
@@ -115,6 +116,55 @@ src/
 - `provider show <name>` - 显示Provider详情
 - `provider edit <name>` - 编辑Provider配置
 
+## Direct 模式环境变量配置
+
+### 🔧 支持的环境变量
+
+#### 必需环境变量
+- **`ANTHROPIC_AUTH_TOKEN`**: API认证令牌
+  - 用于API服务的身份验证
+  - 所有Direct配置都必须设置此字段
+  
+- **`ANTHROPIC_BASE_URL`**: API基础URL
+  - 指定API服务的访问地址
+  - 支持官方API和第三方兼容API
+
+#### 可选环境变量
+- **`ANTHROPIC_MODEL`**: 指定默认使用的模型
+  - 精确控制claude使用的AI模型
+  - 例如：`claude-3-5-sonnet-20241022`
+  - 为空时使用claude的默认模型选择
+
+- **`ANTHROPIC_SMALL_FAST_MODEL`**: 指定快速响应场景的模型  
+  - 用于需要快速响应的轻量级任务
+  - 例如：`claude-3-haiku-20240307`
+  - 为空时使用claude的默认快速模型选择
+
+### 💡 使用场景
+
+#### 基础配置（仅必需变量）
+```bash
+ccode add basic-api
+# 输入Token和URL，跳过可选字段
+# 使用claude的默认模型选择策略
+```
+
+#### 精确模型控制（包含可选变量）
+```bash
+ccode add precise-api
+# 输入Token和URL
+# 设置主模型：claude-3-5-sonnet-20241022
+# 设置快速模型：claude-3-haiku-20240307
+# 实现精确的模型控制
+```
+
+### 📋 配置特性
+
+- **向后兼容**：现有配置无需修改，自动兼容
+- **渐进配置**：用户可根据需要选择性设置可选变量
+- **条件注入**：只有设置的环境变量才会传递给claude命令
+- **模型优化**：支持针对不同场景的模型优化选择
+
 ## 参数透传功能
 
 ### 概述
@@ -159,6 +209,24 @@ ccode run myapi --help                          # ❌ 会显示ccode帮助而非
 - **零警告**: `cargo clippy -- -D warnings`
 - **强制格式化**: `cargo fmt`
 - **安全扫描**: `cargo audit`
+
+### 代码重构和质量改进
+
+#### 🏗️ 架构设计原则
+- **DRY原则**：通过抽象化消除重复代码，提高代码可维护性
+- **单一责任原则**：每个函数专注单一功能，提升代码清晰度
+- **抽象化设计**：创建通用函数处理相似逻辑模式
+
+#### ✨ 最新重构改进 
+- **输入处理优化**：统一的 `read_optional_input()` 函数处理所有可选输入
+- **显示逻辑封装**：`DirectProfile::display_optional_fields()` 方法统一显示逻辑
+- **代码行数减少**：消除约30行重复代码，提升维护效率
+- **测试覆盖完善**：所有新功能都有相应的单元测试覆盖
+
+#### 🎯 维护性提升
+- **统一修改点**：添加新字段只需在一处修改，避免遗漏
+- **错误风险降低**：减少重复代码降低维护时的错误风险
+- **扩展性改善**：为未来功能扩展建立良好的代码模式
 
 ### Git提交流程要求
 **IMPORTANT: 提交代码前必须执行格式化**

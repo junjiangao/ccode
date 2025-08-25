@@ -85,9 +85,11 @@ ccode add myapi
 ```
 
 按提示输入：
-- ANTHROPIC_AUTH_TOKEN: `your-api-token`
-- ANTHROPIC_BASE_URL: `https://api.example.com`
-- 描述（可选）: `我的API服务`
+- **ANTHROPIC_AUTH_TOKEN**: `your-api-token` (必需)
+- **ANTHROPIC_BASE_URL**: `https://api.example.com` (必需)
+- **ANTHROPIC_MODEL**: `claude-3-5-sonnet-20241022` (可选)
+- **ANTHROPIC_SMALL_FAST_MODEL**: `claude-3-haiku-20240307` (可选)
+- **描述**: `我的API服务` (可选)
 
 #### 使用Direct配置
 ```bash
@@ -221,6 +223,8 @@ ccode provider remove <name># 删除Provider
       "myapi": {
         "ANTHROPIC_AUTH_TOKEN": "your-token",
         "ANTHROPIC_BASE_URL": "https://api.example.com",
+        "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
+        "ANTHROPIC_SMALL_FAST_MODEL": "claude-3-haiku-20240307",
         "description": "我的API服务",
         "created_at": "2025-07-31T10:00:00Z"
       }
@@ -284,10 +288,11 @@ ccode provider remove <name># 删除Provider
 ## 🔧 工作原理
 
 ### Direct模式
-1. 读取Direct配置中的token和base_url
-2. 设置环境变量：`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_BASE_URL`
-3. 可选择透传额外参数给claude命令
-4. 启动claude程序
+1. 读取Direct配置中的认证信息和可选设置
+2. 设置必需环境变量：`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_BASE_URL`
+3. 条件设置可选环境变量：`ANTHROPIC_MODEL`、`ANTHROPIC_SMALL_FAST_MODEL`（仅在配置时设置）
+4. 可选择透传额外参数给claude命令
+5. 启动claude程序
 
 ### Router模式
 1. **配置同步**：每次命令执行前自动同步CCR配置文件状态

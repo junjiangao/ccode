@@ -12,10 +12,38 @@ pub struct DirectProfile {
     pub anthropic_auth_token: String,
     #[serde(rename = "ANTHROPIC_BASE_URL")]
     pub anthropic_base_url: String,
+    #[serde(rename = "ANTHROPIC_MODEL", skip_serializing_if = "Option::is_none")]
+    pub anthropic_model: Option<String>,
+    #[serde(
+        rename = "ANTHROPIC_SMALL_FAST_MODEL",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub anthropic_small_fast_model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
+}
+
+impl DirectProfile {
+    /// 显示可选字段信息
+    pub fn display_optional_fields(&self, indent: &str) {
+        if let Some(model) = &self.anthropic_model {
+            println!("{indent}🤖 模型: {model}");
+        }
+
+        if let Some(fast_model) = &self.anthropic_small_fast_model {
+            println!("{indent}⚡ 快速模型: {fast_model}");
+        }
+
+        if let Some(desc) = &self.description {
+            println!("{indent}📝 描述: {desc}");
+        }
+
+        if let Some(created) = &self.created_at {
+            println!("{indent}📅 创建: {created}");
+        }
+    }
 }
 
 /// 向后兼容的Profile类型别名
@@ -921,6 +949,8 @@ mod tests {
         Profile {
             anthropic_auth_token: "test-token-123".to_string(),
             anthropic_base_url: "https://api.anthropic.com".to_string(),
+            anthropic_model: None,
+            anthropic_small_fast_model: None,
             description: Some("Test profile".to_string()),
             created_at: Some("2025-07-29T00:00:00Z".to_string()),
         }
@@ -940,7 +970,79 @@ mod tests {
         let profile = create_test_profile();
         assert_eq!(profile.anthropic_auth_token, "test-token-123");
         assert_eq!(profile.anthropic_base_url, "https://api.anthropic.com");
+        assert_eq!(profile.anthropic_model, None);
+        assert_eq!(profile.anthropic_small_fast_model, None);
         assert_eq!(profile.description, Some("Test profile".to_string()));
+    }
+
+    #[test]
+    fn test_profile_with_optional_fields() {
+        let profile = Profile {
+            anthropic_auth_token: "test-token".to_string(),
+            anthropic_base_url: "https://api.test.com".to_string(),
+            anthropic_model: Some("claude-3-5-sonnet-20241022".to_string()),
+            anthropic_small_fast_model: Some("claude-3-haiku-20240307".to_string()),
+            description: Some("Test with models".to_string()),
+            created_at: None,
+        };
+
+        assert_eq!(
+            profile.anthropic_model,
+            Some("claude-3-5-sonnet-20241022".to_string())
+        );
+        assert_eq!(
+            profile.anthropic_small_fast_model,
+            Some("claude-3-haiku-20240307".to_string())
+        );
+    }
+
+    #[test]
+    fn test_profile_serialization() {
+        let profile = Profile {
+            anthropic_auth_token: "test-token".to_string(),
+            anthropic_base_url: "https://api.test.com".to_string(),
+            anthropic_model: Some("test-model".to_string()),
+            anthropic_small_fast_model: Some("test-fast-model".to_string()),
+            description: Some("Test".to_string()),
+            created_at: None,
+        };
+
+        // 测试序列化
+        let json = serde_json::to_string(&profile).unwrap();
+        assert!(json.contains("ANTHROPIC_MODEL"));
+        assert!(json.contains("ANTHROPIC_SMALL_FAST_MODEL"));
+        assert!(json.contains("test-model"));
+        assert!(json.contains("test-fast-model"));
+
+        // 测试反序列化
+        let deserialized: Profile = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.anthropic_model, Some("test-model".to_string()));
+        assert_eq!(
+            deserialized.anthropic_small_fast_model,
+            Some("test-fast-model".to_string())
+        );
+    }
+
+    #[test]
+    fn test_profile_serialization_without_optional_fields() {
+        let profile = Profile {
+            anthropic_auth_token: "test-token".to_string(),
+            anthropic_base_url: "https://api.test.com".to_string(),
+            anthropic_model: None,
+            anthropic_small_fast_model: None,
+            description: None,
+            created_at: None,
+        };
+
+        // 测试序列化 - 可选字段不应该出现在JSON中
+        let json = serde_json::to_string(&profile).unwrap();
+        assert!(!json.contains("ANTHROPIC_MODEL"));
+        assert!(!json.contains("ANTHROPIC_SMALL_FAST_MODEL"));
+
+        // 测试反序列化
+        let deserialized: Profile = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.anthropic_model, None);
+        assert_eq!(deserialized.anthropic_small_fast_model, None);
     }
 
     #[test]
