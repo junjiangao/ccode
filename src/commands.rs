@@ -5,6 +5,20 @@ use chrono::Utc;
 use std::io::{self, Write};
 use std::process::Command;
 
+/// 读取可选字符串输入的通用函数
+fn read_optional_input(prompt: &str) -> AppResult<Option<String>> {
+    print!("{prompt}");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let input = input.trim();
+    Ok(if input.is_empty() {
+        None
+    } else {
+        Some(input.to_string())
+    })
+}
+
 /// 为不同路由类型获取智能推荐
 fn get_route_recommendations(
     route_key: &str,
@@ -173,22 +187,22 @@ pub fn cmd_add(name: String) -> AppResult<()> {
     io::stdin().read_line(&mut url)?;
     let url = url.trim().to_string();
 
+    // 获取可选的模型配置
+    let anthropic_model = read_optional_input("🤖 请输入 ANTHROPIC_MODEL (可选，直接回车跳过): ")?;
+
+    // 获取快速模型配置
+    let anthropic_small_fast_model =
+        read_optional_input("⚡ 请输入 ANTHROPIC_SMALL_FAST_MODEL (可选，直接回车跳过): ")?;
+
     // 获取描述（可选）
-    print!("📝 请输入描述 (可选，直接回车跳过): ");
-    io::stdout().flush().unwrap();
-    let mut description = String::new();
-    io::stdin().read_line(&mut description)?;
-    let description = description.trim();
-    let description = if description.is_empty() {
-        None
-    } else {
-        Some(description.to_string())
-    };
+    let description = read_optional_input("📝 请输入描述 (可选，直接回车跳过): ")?;
 
     // 创建配置
     let profile = Profile {
         anthropic_auth_token: token,
         anthropic_base_url: url,
+        anthropic_model,
+        anthropic_small_fast_model,
         description,
         created_at: Some(Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string()),
     };
@@ -235,12 +249,29 @@ pub fn cmd_run(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> 
 
     println!("🚀 使用配置 '{profile_name}' 启动 claude...");
     println!("📍 API URL: {}", profile.anthropic_base_url);
+
+    // 显示设置的环境变量
+    if let Some(model) = &profile.anthropic_model {
+        println!("🤖 模型: {}", model);
+    }
+    if let Some(fast_model) = &profile.anthropic_small_fast_model {
+        println!("⚡ 快速模型: {}", fast_model);
+    }
     println!();
 
     // 设置环境变量并启动claude
     let mut cmd = Command::new("claude");
     cmd.env("ANTHROPIC_AUTH_TOKEN", &profile.anthropic_auth_token);
     cmd.env("ANTHROPIC_BASE_URL", &profile.anthropic_base_url);
+
+    // 条件设置可选的环境变量
+    if let Some(model) = &profile.anthropic_model {
+        cmd.env("ANTHROPIC_MODEL", model);
+    }
+
+    if let Some(fast_model) = &profile.anthropic_small_fast_model {
+        cmd.env("ANTHROPIC_SMALL_FAST_MODEL", fast_model);
+    }
 
     // 添加透传的参数
     if !claude_args.is_empty() {
@@ -409,12 +440,7 @@ pub fn cmd_list_all() -> AppResult<()> {
                 &profile.anthropic_auth_token
                     [profile.anthropic_auth_token.len().saturating_sub(4)..]
             );
-            if let Some(desc) = &profile.description {
-                println!("     📝 描述: {desc}");
-            }
-            if let Some(created) = &profile.created_at {
-                println!("     📅 创建: {created}");
-            }
+            profile.display_optional_fields("     ");
             println!();
         }
     }
@@ -482,13 +508,7 @@ pub fn cmd_list_direct() -> AppResult<()> {
             &profile.anthropic_auth_token[profile.anthropic_auth_token.len().saturating_sub(4)..]
         );
 
-        if let Some(desc) = &profile.description {
-            println!("   📝 描述: {desc}");
-        }
-
-        if let Some(created) = &profile.created_at {
-            println!("   📅 创建: {created}");
-        }
+        profile.display_optional_fields("   ");
         println!();
     }
 
