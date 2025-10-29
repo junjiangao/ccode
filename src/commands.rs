@@ -1,5 +1,4 @@
-use crate::ccr_config::CcrConfigManager;
-use crate::config::{CcrProvider, CcrRouter, Config, Profile, ProviderType, RouterProfile};
+use crate::config::{Config, Profile};
 use crate::error::{AppError, AppResult};
 use chrono::Utc;
 use std::io::{self, Write};
@@ -19,7 +18,8 @@ fn read_optional_input(prompt: &str) -> AppResult<Option<String>> {
     })
 }
 
-/// 为不同路由类型获取智能推荐
+// 已移除：CCR 路由类型智能推荐（依赖 CCR Provider/Router）
+/*
 fn get_route_recommendations(
     route_key: &str,
     providers: &[CcrProvider],
@@ -161,6 +161,7 @@ fn get_route_recommendations(
     recommendations.truncate(3);
     recommendations
 }
+*/
 
 /// 交互式添加配置
 pub fn cmd_add(name: String) -> AppResult<()> {
@@ -327,14 +328,11 @@ pub fn cmd_remove(name: String) -> AppResult<()> {
     println!("✅ 配置 '{name}' 已删除");
 
     // 如果还有其他配置，显示当前默认配置
-    if !config.groups.direct.is_empty() || !config.groups.router.is_empty() {
-        if let Some(default_profile) = &config.default_profile {
-            if let Some(direct) = &default_profile.direct {
-                println!("🎯 当前默认Direct配置: {direct}");
-            }
-            if let Some(router) = &default_profile.router {
-                println!("🎯 当前默认Router配置: {router}");
-            }
+    if !config.groups.direct.is_empty() {
+        if let Some(default_profile) = &config.default_profile
+            && let Some(direct) = &default_profile.direct
+        {
+            println!("🎯 当前默认Direct配置: {direct}");
         }
     } else {
         println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
@@ -347,8 +345,9 @@ pub fn cmd_remove(name: String) -> AppResult<()> {
 pub fn cmd_list_with_group(group: Option<String>) -> AppResult<()> {
     match group.as_deref() {
         Some("direct") => cmd_list_direct(),
-        Some("ccr") => cmd_list_ccr(),
-        Some(g) => Err(AppError::Config(format!("未知的配置组: {g}"))),
+        Some(g) => Err(AppError::Config(format!(
+            "未知的配置组: {g} (仅支持 direct)"
+        ))),
         None => cmd_list_all(),
     }
 }
@@ -357,8 +356,9 @@ pub fn cmd_list_with_group(group: Option<String>) -> AppResult<()> {
 pub fn cmd_add_with_group(name: String, group: Option<String>) -> AppResult<()> {
     match group.as_deref() {
         Some("direct") => cmd_add_direct(name),
-        Some("ccr") => cmd_add_ccr(name),
-        Some(g) => Err(AppError::Config(format!("未知的配置组: {g}"))),
+        Some(g) => Err(AppError::Config(format!(
+            "未知的配置组: {g} (仅支持 direct)"
+        ))),
         None => cmd_add_direct(name), // 默认使用direct组
     }
 }
@@ -367,8 +367,9 @@ pub fn cmd_add_with_group(name: String, group: Option<String>) -> AppResult<()> 
 pub fn cmd_use_with_group(name: String, group: Option<String>) -> AppResult<()> {
     match group.as_deref() {
         Some("direct") => cmd_use_direct(name),
-        Some("ccr") => cmd_use_ccr(name),
-        Some(g) => Err(AppError::Config(format!("未知的配置组: {g}"))),
+        Some(g) => Err(AppError::Config(format!(
+            "未知的配置组: {g} (仅支持 direct)"
+        ))),
         None => cmd_use(name), // 向后兼容
     }
 }
@@ -381,16 +382,9 @@ pub fn cmd_run_with_group(
 ) -> AppResult<()> {
     match group.as_deref() {
         Some("direct") => cmd_run_direct(name, claude_args),
-        Some("ccr") => {
-            if !claude_args.is_empty() {
-                println!(
-                    "⚠️  注意: CCR 模式不支持透传参数，将忽略: {}",
-                    claude_args.join(" ")
-                );
-            }
-            cmd_run_ccr(name)
-        }
-        Some(g) => Err(AppError::Config(format!("未知的配置组: {g}"))),
+        Some(g) => Err(AppError::Config(format!(
+            "未知的配置组: {g} (仅支持 direct)"
+        ))),
         None => cmd_run(name, claude_args), // 向后兼容，默认使用direct模式
     }
 }
@@ -399,8 +393,9 @@ pub fn cmd_run_with_group(
 pub fn cmd_remove_with_group(name: String, group: Option<String>) -> AppResult<()> {
     match group.as_deref() {
         Some("direct") => cmd_remove_direct(name),
-        Some("ccr") => cmd_remove_ccr(name),
-        Some(g) => Err(AppError::Config(format!("未知的配置组: {g}"))),
+        Some(g) => Err(AppError::Config(format!(
+            "未知的配置组: {g} (仅支持 direct)"
+        ))),
         None => cmd_remove(name), // 向后兼容
     }
 }
@@ -417,9 +412,8 @@ pub fn cmd_list_all() -> AppResult<()> {
     };
 
     let direct_profiles = config.list_direct_profiles();
-    let router_profiles = config.list_router_profiles();
 
-    if direct_profiles.is_empty() && router_profiles.is_empty() {
+    if direct_profiles.is_empty() {
         println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
         return Ok(());
     }
@@ -445,34 +439,7 @@ pub fn cmd_list_all() -> AppResult<()> {
         }
     }
 
-    // 显示Router组配置
-    if !router_profiles.is_empty() {
-        println!("🎯 Router组配置：");
-        for (name, profile, is_default) in router_profiles {
-            let default_marker = if is_default { " (默认)" } else { "" };
-            println!("  🔧 {name}{default_marker}");
-            println!("     🎯 默认路由: {}", profile.router.default);
-            if let Some(background) = &profile.router.background {
-                println!("     🔄 后台路由: {background}");
-            }
-            if let Some(think) = &profile.router.think {
-                println!("     💭 思考路由: {think}");
-            }
-            if let Some(long_context) = &profile.router.long_context {
-                println!("     📜 长上下文路由: {long_context}");
-            }
-            if let Some(web_search) = &profile.router.web_search {
-                println!("     🔍 网络搜索路由: {web_search}");
-            }
-            if let Some(desc) = &profile.description {
-                println!("     📝 描述: {desc}");
-            }
-            if let Some(created) = &profile.created_at {
-                println!("     📅 创建: {created}");
-            }
-            println!();
-        }
-    }
+    // 已移除 Router 组配置显示
 
     Ok(())
 }
@@ -570,6 +537,7 @@ pub fn cmd_remove_direct(name: String) -> AppResult<()> {
 }
 
 /// 列出CCR配置（Router Profile）
+#[cfg(any())]
 pub fn cmd_list_ccr() -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -663,6 +631,7 @@ pub fn cmd_list_ccr() -> AppResult<()> {
 }
 
 /// 添加CCR配置（Router Profile）
+#[cfg(any())]
 pub fn cmd_add_ccr(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -931,6 +900,7 @@ pub fn cmd_add_ccr(name: String) -> AppResult<()> {
 }
 
 /// 使用CCR配置（激活Router Profile）
+#[cfg(any())]
 pub fn cmd_use_ccr(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -991,6 +961,7 @@ pub fn cmd_use_ccr(name: String) -> AppResult<()> {
 }
 
 /// 运行CCR配置（使用原生ccr命令）
+#[cfg(any())]
 pub fn cmd_run_ccr(name: Option<String>) -> AppResult<()> {
     let ccr_manager = CcrConfigManager::new()?;
 
@@ -1099,6 +1070,7 @@ pub fn cmd_run_ccr(name: Option<String>) -> AppResult<()> {
 }
 
 /// 删除CCR配置（Router Profile）
+#[cfg(any())]
 pub fn cmd_remove_ccr(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -1174,6 +1146,7 @@ pub fn cmd_remove_ccr(name: String) -> AppResult<()> {
 }
 
 /// 列出所有 Providers
+#[cfg(any())]
 pub fn cmd_provider_list() -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -1232,6 +1205,7 @@ pub fn cmd_provider_list() -> AppResult<()> {
 }
 
 /// 添加 Provider
+#[cfg(any())]
 pub fn cmd_provider_add(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -1357,6 +1331,7 @@ pub fn cmd_provider_add(name: String) -> AppResult<()> {
 }
 
 /// 删除 Provider
+#[cfg(any())]
 pub fn cmd_provider_remove(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -1400,6 +1375,7 @@ pub fn cmd_provider_remove(name: String) -> AppResult<()> {
 }
 
 /// 显示 Provider 详情
+#[cfg(any())]
 pub fn cmd_provider_show(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 
@@ -1435,6 +1411,7 @@ pub fn cmd_provider_show(name: String) -> AppResult<()> {
 }
 
 /// 编辑 Provider
+#[cfg(any())]
 pub fn cmd_provider_edit(name: String) -> AppResult<()> {
     let manager = CcrConfigManager::new()?;
 

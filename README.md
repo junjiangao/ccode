@@ -1,6 +1,6 @@
 # ccode 🚀
 
-**Claude Code 配置管理工具** - 支持双模式配置的Claude环境快速切换工具
+**Claude Code 配置管理工具** - 专注 Direct 模式的 Claude 环境快速切换工具
 
 [![CI Status](https://github.com/junjiangao/ccode/workflows/CI/badge.svg)](https://github.com/junjiangao/ccode/actions)
 [![Release](https://github.com/junjiangao/ccode/workflows/Release/badge.svg)](https://github.com/junjiangao/ccode/actions)
@@ -11,31 +11,25 @@
 
 ## ✨ 核心特性
 
-### 🔄 双模式架构
-- **🎯 Direct模式**：简单的API配置，直接启动claude
-- **🛠️ Router模式**：通过RouterProfile管理复杂路由配置
+### 🎯 模式
+- **Direct 模式**：简单的 API 配置，直接启动 `claude`
 
 ### 🌟 主要功能
 - 📋 **配置管理**：支持多配置存储和快速切换
-- 🔀 **路由配置**：管理RouterProfile，支持不同场景的模型路由
-- 🎛️ **Provider管理**：管理claude-code-router的provider配置
-- 🔄 **配置同步**：自动同步CCR配置文件，确保配置信息实时一致
-- ⚡ **精确更新**：精确更新配置节点，避免重写整个配置文件
 - 🚀 **参数透传**：支持将参数透传给claude命令（仅Direct模式）
 - 📱 **交互式操作**：友好的命令行交互界面
 - 🌐 **跨平台支持**：Windows、macOS、Linux
 
 ### 🛠️ 工作模式
 - **Direct模式**：传统的token+base_url配置方式，直接启动claude程序
-- **Router模式**：管理RouterProfile配置，通过外部`ccr`命令启动路由功能
+ 
 
 ## 🚀 快速开始
 
 ### 📋 系统要求
 
 - **Rust**: 1.70+（如需从源码编译）
-- **Claude CLI**: 已安装claude命令行工具
-- **ccr工具**: Router模式需要安装claude-code-router工具
+- **Claude CLI**: 已安装 `claude` 命令行工具
 
 ### 📦 安装
 
@@ -73,7 +67,7 @@ sudo cp target/release/ccode /usr/local/bin/
 
 ## 📖 使用指南
 
-### 🎯 Direct模式（简单配置）
+### 🎯 Direct 模式（简单配置）
 
 适合简单的API切换需求，与传统版本完全兼容。
 
@@ -109,114 +103,50 @@ ccode run myapi code --project myapp
 ccode run myapi -- --help
 ```
 
-### 🛠️ Router模式（路由配置）
-
-适合需要管理复杂路由配置的场景，依赖外部ccr工具。
-
-#### 添加Provider
-```bash
-ccode provider add deepseek
-```
-
-按提示配置Provider信息：
-- API Base URL
-- API Key  
-- 支持的模型列表
-- Provider类型
-
-#### 添加RouterProfile
-```bash
-ccode add-ccr production
-```
-
-交互式配置路由规则：
-- default: 默认路由
-- background: 后台任务路由
-- think: 推理任务路由
-- longContext: 长上下文路由
-- webSearch: 网络搜索路由
-
-#### 使用Router配置
-```bash
-# 列出RouterProfile
-ccode list-ccr
-
-# 设置默认RouterProfile
-ccode use-ccr production
-
-# 启动claude（通过ccr工具）
-ccode run-ccr production
-```
+<!-- Router/Provider 功能已移除 -->
 
 ## 📋 命令参考
 
-### 🔄 统一命令
-
-支持`--group direct|router`参数的通用命令：
+### 🔄 命令
 
 ```bash
 # 列出配置
-ccode list [--group direct|router]
+ccode list [--group direct]
 
 # 添加配置
-ccode add <name> [--group direct|router]
+ccode add <name> [--group direct]
 
-# 设置默认配置  
-ccode use <name> [--group direct|router]
+# 设置默认配置
+ccode use <name> [--group direct]
 
-# 启动claude
-ccode run [name] [--group direct|router]
-
-# 启动claude并透传参数（仅Direct模式支持）
-ccode run [name] [--group direct] <claude_args>
+# 启动 claude（支持参数透传）
+ccode run [name] [--group direct] [<claude_args>...]
 
 # 示例：
 # ccode run myapi --version                    # 直接透传
-# ccode run myapi --group direct code         # 启动code模式
-# ccode run myapi -- --help                   # 使用--分隔符避免冲突
+# ccode run myapi code                         # 透传子命令
+# ccode run myapi -- --help                    # 使用 -- 分隔符避免冲突
 
 # 删除配置
-ccode remove <name> [--group direct|router]
+ccode remove <name> [--group direct]
 ```
 
-### 🛠️ Router模式快捷命令
-
-专门针对Router模式的便捷命令：
-
-```bash
-ccode add-ccr <name>      # 添加RouterProfile
-ccode list-ccr            # 列出RouterProfile
-ccode use-ccr <name>      # 设置默认RouterProfile
-ccode run-ccr [name]      # 启动RouterProfile（通过ccr工具）
-ccode remove-ccr <name>   # 删除RouterProfile
-```
-
-### 📊 Provider管理命令
-
-```bash
-ccode provider list       # 列出Providers
-ccode provider add <name> # 添加Provider
-ccode provider show <name># 查看Provider详情
-ccode provider edit <name># 编辑Provider
-ccode provider remove <name># 删除Provider
-```
+<!-- Router/Provider 快捷命令已移除 -->
 
 ## 📁 配置文件
 
 ### 配置存储位置
 - **Linux/macOS**: `~/.config/ccode/config.json`
 - **Windows**: `%APPDATA%/ccode/config.json`
-- **CCR配置**: `~/.claude-code-router/config.json`（由ccode管理）
 
-### ccode配置文件结构
+### ccode 配置文件结构（Direct）
 
 ```json
 {
   "version": "2.0",
   "default_group": "direct",
   "default_profile": {
-    "direct": "myapi",
-    "router": "production"
+    "direct": "myapi"
   },
   "groups": {
     "direct": {
@@ -228,62 +158,12 @@ ccode provider remove <name># 删除Provider
         "description": "我的API服务",
         "created_at": "2025-07-31T10:00:00Z"
       }
-    },
-    "router": {
-      "production": {
-        "name": "production",
-        "router": {
-          "default": "deepseek,deepseek-chat",
-          "background": "qwen,qwen-plus",
-          "think": "deepseek,deepseek-reasoner",
-          "longContext": "qwen,qwen-max",
-          "longContextThreshold": 60000,
-          "webSearch": "qwen,qwen-plus"
-        },
-        "description": "生产环境路由配置",
-        "created_at": "2025-07-31T10:00:00Z"
-      }
     }
   }
 }
 ```
 
-### CCR配置文件结构
-
-**文件位置**: `~/.claude-code-router/config.json`（由ccode自动管理）
-
-```json
-{
-  "providers": [
-    {
-      "name": "deepseek",
-      "api_base_url": "https://api.deepseek.com/chat/completions",
-      "api_key": "sk-xxx",
-      "models": ["deepseek-chat", "deepseek-reasoner"],
-      "provider_type": "deepseek"
-    },
-    {
-      "name": "qwen",
-      "api_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-      "api_key": "sk-xxx", 
-      "models": ["qwen-plus", "qwen-max"],
-      "provider_type": "qwen"
-    }
-  ],
-  "router": {
-    "default": "deepseek,deepseek-chat",
-    "background": "qwen,qwen-plus",
-    "think": "deepseek,deepseek-reasoner",
-    "longContext": "qwen,qwen-max",
-    "longContextThreshold": 60000,
-    "webSearch": "qwen,qwen-plus"
-  },
-  "transformer": {
-    "use": ["deepseek"],
-    "deepseek-chat": {"use": ["tooluse"]}
-  }
-}
-```
+<!-- CCR 配置文件相关章节已移除 -->
 
 ## 🔧 工作原理
 
@@ -294,68 +174,33 @@ ccode provider remove <name># 删除Provider
 4. 可选择透传额外参数给claude命令
 5. 启动claude程序
 
-### Router模式
-1. **配置同步**：每次命令执行前自动同步CCR配置文件状态
-2. **读取RouterProfile**：从ccode配置中读取路由规则
-3. **精确配置应用**：将RouterProfile精确应用到CCR配置文件的Router节点
-4. **启动路由**：调用外部`ccr code`命令启动路由功能
+<!-- Router 模式工作原理已移除 -->
 
-### 配置管理架构
-
-```
-┌─────────────────┐    精确管理    ┌──────────────────────┐
-│ ccode配置        │ ─────────────→ │ CCR配置文件          │
-│ ~/.config/ccode  │    配置同步    │ ~/.claude-code-router │
-├─────────────────┤                ├──────────────────────┤
-│ router组:        │                │ providers: []        │
-│ • RouterProfile  │                │ router: {}           │
-│ • 路由规则       │                │ transformer: {}      │
-│ • 元数据         │                │                      │
-└─────────────────┘                └──────────────────────┘
-         │                                    │
-         │ ccode命令                          │ ccr工具
-         ▼                                    ▼
-┌─────────────────┐                ┌──────────────────────┐
-│ 配置管理         │                │ 路由执行             │
-│ • add-ccr       │                │ • ccr code           │
-│ • list-ccr      │                │ • 智能路由           │
-│ • provider管理   │                │ • API转换            │
-│ • 配置同步       │                │                      │
-└─────────────────┘                └──────────────────────┘
-```
+<!-- 架构图（CCR 集成）已移除 -->
 
 ## 🎯 使用场景
 
 ### 个人开发者
-- **Direct模式**：简单API切换，快速上手
-- **Router模式**：管理多个API服务的路由配置
+- **Direct 模式**：简单 API 切换，快速上手
 
 ### 团队协作
-- 标准化配置管理（开发/测试/生产）
-- 统一的RouterProfile配置和分享
-- 集中化的Provider管理
+- 标准化 Direct 配置管理（开发/测试/生产）
 
 ### 高级用户
-- 复杂的路由规则配置
-- 多Provider的配置管理
-- 与claude-code-router的深度集成
+- 通过可选变量实现更细粒度的模型控制
 
 ## ⚠️ 重要说明
 
 ### 系统依赖
-- **claude CLI**：必须预先安装claude命令行工具
-- **ccr工具**：Router模式需要安装claude-code-router
-- **配置文件**：ccode仅管理配置，不包含服务管理功能
+- **claude CLI**：必须预先安装 `claude` 命令行工具
+- **配置文件**：ccode 仅管理配置，不包含服务管理功能
 
 ### 兼容性
-- **向后兼容**：现有Direct模式配置无需修改
-- **配置迁移**：自动从v1.0配置格式升级到v2.0
-- **外部依赖**：依赖外部ccr工具进行路由功能
+- **向后兼容**：现有 Direct 模式配置无需修改
+- **配置迁移**：自动从 v1.0 配置格式升级到 v2.0
 
 ### 限制说明
-- ccode不包含CCR服务管理功能（start/stop/restart等）
-- Router模式需要用户自行安装和管理ccr工具
-- 配置文件管理功能仅限于RouterProfile和Provider
+- ccode 不包含服务管理功能（start/stop/restart等）
 
 ## 📊 构建状态
 
@@ -396,7 +241,6 @@ src/
 ├── main.rs           # CLI入口和命令路由
 ├── commands.rs       # 命令实现逻辑
 ├── config.rs         # 配置数据结构和管理
-├── ccr_config.rs     # CCR配置文件管理
 ├── error.rs          # 统一错误处理
 └── lib.rs            # 库入口模块导出
 ```

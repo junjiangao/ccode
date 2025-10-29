@@ -4,26 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-`ccode` 是一个用 Rust 编写的命令行配置管理工具，专为 `claude` CLI 和 `claude-code-router` (ccr) 设计。它采用双模式架构，简化不同配置环境的切换。
+`ccode` 是一个用 Rust 编写的命令行配置管理工具，专为 `claude` CLI 的 Direct 模式配置与切换而设计，提供多配置管理与一键启动体验。
 
-### 🎯 核心架构
+### 🎯 核心架构（仅 Direct）
 
-- **Direct 模式**：传统的简单API配置方式（向后兼容）。
-  - 直接配置 `ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_BASE_URL`（必需）。
-  - 可选配置 `ANTHROPIC_MODEL` 和 `ANTHROPIC_SMALL_FAST_MODEL` 实现精确模型控制。
-  - 适合单一API服务的简单切换需求。
-  - **参数透传**：支持直接将参数透传给 `claude` 命令。
-
-- **Router 模式**：通过管理 `RouterProfile` 来支持 `claude-code-router` 的复杂路由配置。
-  - **Provider 管理**：支持管理不同的后端服务（如 DeepSeek, Qwen 等）。
-  - **路由规则**：为不同场景（如默认、后台、思考等）配置不同的模型路由。
-  - **配置同步**：自动将 `ccode` 中的路由配置同步到 `ccr` 的配置文件中。
-  - **精确更新**：更新配置时只修改变动节点，而非重写整个文件。
+- 直接配置 `ANTHROPIC_AUTH_TOKEN` 与 `ANTHROPIC_BASE_URL`（必填）。
+- 可选配置 `ANTHROPIC_MODEL`、`ANTHROPIC_SMALL_FAST_MODEL` 精细化控制。
+- 支持参数透传到 `claude` 命令。
 
 ### ⚠️ 重要说明
 
-- `ccode` **仅管理配置**，不包含 `ccr` 的服务管理功能（如 `start`/`stop`）。
-- `Router` 模式依赖用户**自行安装和管理** `ccr` 工具。
+- `ccode` 仅管理配置与启动，不包含服务管理功能。
 
 ## 开发命令
 
@@ -81,40 +72,22 @@ src/
 ├── main.rs          # CLI入口，命令路由和参数解析
 ├── commands.rs      # 所有命令的具体实现逻辑
 ├── config.rs        # ccode配置数据结构和管理
-├── ccr_config.rs    # ccr配置文件(config.json)的管理
 ├── error.rs         # 统一错误处理
 └── lib.rs           # 库入口，模块导出
 ```
 
 ### 配置系统架构
 
-- **ccode 配置**: `~/.config/ccode/config.json`
-- **ccr 配置**: `~/.claude-code-router/config.json` (由 `ccode` 自动管理)
-
-`ccode` 读取自身的配置文件，并根据 `Router` 模式的配置去精确更新 `ccr` 的配置文件。
+- 配置路径: `~/.config/ccode/config.json`
 
 ## 命令组织模式
 
-### 统一接口命令 (支持 `--group` 参数)
-- `list [--group direct|router]` - 列出指定组配置
-- `add <name> [--group direct|router]` - 添加配置到指定组
-- `use <name> [--group direct|router]` - 设置指定组默认配置
-- `run [name] [--group direct|router] [<claude_args>...]` - 运行指定组配置，支持透传参数给claude（仅Direct模式）
-- `remove <name> [--group direct|router]` - 删除指定组配置
-
-### Router 模式快捷命令
-- `add-ccr <name>` - 快速添加RouterProfile
-- `list-ccr` - 列出所有RouterProfile
-- `use-ccr <name>` - 设置默认RouterProfile
-- `run-ccr [name]` - 使用指定RouterProfile启动 (调用外部`ccr`命令)
-- `remove-ccr <name>` - 删除RouterProfile
-
-### Provider 管理命令
-- `provider list` - 列出所有Providers
-- `provider add <name>` - 添加新Provider
-- `provider remove <name>` - 删除Provider
-- `provider show <name>` - 显示Provider详情
-- `provider edit <name>` - 编辑Provider配置
+### 命令一览（仅 Direct）
+- `list [--group direct]` - 列出配置
+- `add <name> [--group direct]` - 添加配置
+- `use <name> [--group direct]` - 设置默认配置
+- `run [name] [--group direct] [<claude_args>...]` - 启动并透传参数到 `claude`
+- `remove <name> [--group direct]` - 删除配置
 
 ## Direct 模式环境变量配置
 
@@ -191,10 +164,10 @@ ccode run myapi --help                          # ❌ 会显示ccode帮助而非
 ```
 
 ### 功能特性
-- **双模式支持**：支持直接透传和 `--` 分隔符两种方式
+- **两种透传方式**：支持直接透传和 `--` 分隔符
 - **智能冲突处理**：自动识别参数冲突并在提示中说明解决方案
 - **完整透传**：支持所有 `claude` 命令的参数和选项
-- **模式限制**：仅在 Direct 模式下生效，CCR 模式会忽略透传参数并显示警告
+  
 
 ### 实现原理
 1. 使用 `trailing_var_arg = true` 解析尾随参数，支持两种使用方式
