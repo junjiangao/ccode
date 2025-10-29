@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

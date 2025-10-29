@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod error;
+mod toml_config;
 
 use clap::{Parser, Subcommand};
 use error::AppResult;

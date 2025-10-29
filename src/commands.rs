@@ -1,6 +1,5 @@
-use crate::config::{Config, Profile};
 use crate::error::{AppError, AppResult};
-use chrono::Utc;
+use crate::toml_config::{TomlConfig, TomlProfile, load_token_from_env};
 use std::io::{self, Write};
 use std::process::Command;
 
@@ -163,125 +162,94 @@ fn get_route_recommendations(
 }
 */
 
-/// 交互式添加配置
-pub fn cmd_add(name: String) -> AppResult<()> {
-    let mut config = Config::load().unwrap_or_default();
+// 旧 JSON 模式命令已移除
 
-    if config.groups.direct.contains_key(&name) {
-        return Err(AppError::Config(format!("配置 '{name}' 已存在")));
-    }
+// 旧 JSON 模式删除命令已移除
 
-    println!("🔧 添加新配置: {name}");
-    println!();
-
-    // 获取认证令牌
-    print!("🔑 请输入 ANTHROPIC_AUTH_TOKEN (支持各种第三方API格式): ");
-    io::stdout().flush().unwrap();
-    let mut token = String::new();
-    io::stdin().read_line(&mut token)?;
-    let token = token.trim().to_string();
-
-    // 获取基础URL
-    print!("📍 请输入 ANTHROPIC_BASE_URL (如: https://api.anthropic.com): ");
-    io::stdout().flush().unwrap();
-    let mut url = String::new();
-    io::stdin().read_line(&mut url)?;
-    let url = url.trim().to_string();
-
-    // 获取可选的模型配置
-    let anthropic_model = read_optional_input("🤖 请输入 ANTHROPIC_MODEL (可选，直接回车跳过): ")?;
-
-    // 获取快速模型配置
-    let anthropic_small_fast_model =
-        read_optional_input("⚡ 请输入 ANTHROPIC_SMALL_FAST_MODEL (可选，直接回车跳过): ")?;
-
-    // 获取描述（可选）
-    let description = read_optional_input("📝 请输入描述 (可选，直接回车跳过): ")?;
-
-    // 创建配置
-    let profile = Profile {
-        anthropic_auth_token: token,
-        anthropic_base_url: url,
-        anthropic_model,
-        anthropic_small_fast_model,
-        description,
-        created_at: Some(Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string()),
-    };
-
-    // 添加并保存配置
-    config.add_direct_profile(name.clone(), profile)?;
-    config.save()?;
-
-    println!();
-    println!("✅ 配置 '{name}' 添加成功！");
-
-    if config.groups.direct.len() == 1 {
-        println!("🎯 已自动设为默认配置");
-    }
-
-    Ok(())
+/// 列出配置（统一接口）
+pub fn cmd_list_with_group(_group: Option<String>) -> AppResult<()> {
+    cmd_list_toml()
 }
 
-/// 设置默认配置
-pub fn cmd_use(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
-
-    config.set_default(&name)?;
-    config.save()?;
-
-    println!("✅ 已将 '{name}' 设为默认配置");
-    Ok(())
+/// 添加配置（统一接口）
+pub fn cmd_add_with_group(name: String, _group: Option<String>) -> AppResult<()> {
+    cmd_add_toml(name)
 }
 
-/// 启动claude程序
-pub fn cmd_run(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> {
-    let config = Config::load()?;
+/// 设置默认配置（统一接口）
+pub fn cmd_use_with_group(name: String, _group: Option<String>) -> AppResult<()> {
+    cmd_use_toml(name)
+}
 
-    let (profile_name, profile) = match name {
-        Some(name) => {
-            let profile = config.get_direct_profile(&name)?;
-            (name, profile)
-        }
-        None => {
-            let (default_name, profile) = config.get_default_direct_profile()?;
-            (default_name.clone(), profile)
-        }
-    };
+/// 运行配置（统一接口）
+pub fn cmd_run_with_group(
+    name: Option<String>,
+    _group: Option<String>,
+    claude_args: Vec<String>,
+) -> AppResult<()> {
+    cmd_run_toml(name, claude_args)
+}
 
-    println!("🚀 使用配置 '{profile_name}' 启动 claude...");
-    println!("📍 API URL: {}", profile.anthropic_base_url);
+/// 删除配置（统一接口）
+pub fn cmd_remove_with_group(name: String, _group: Option<String>) -> AppResult<()> {
+    cmd_remove_toml(name)
+}
 
-    // 显示设置的环境变量
-    if let Some(model) = &profile.anthropic_model {
-        println!("🤖 模型: {}", model);
+/// 使用 TOML 新格式运行 claude
+pub fn cmd_run_toml(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> {
+    let config = TomlConfig::load()?;
+    let toml_path = TomlConfig::get_config_path()?;
+    let (profile_name, profile) = config.get_profile(name.as_deref())?;
+
+    // 读取 token：优先同目录 .env，其次系统环境
+    let token = load_token_from_env(&toml_path, &profile.env_key)?;
+
+    println!("🚀 使用 TOML 配置 '{profile_name}' 启动 claude...");
+    println!("📍 API URL: {}", profile.base_url);
+    if let Some(m) = &profile.model {
+        println!("🤖 默认模型: {}", m);
     }
-    if let Some(fast_model) = &profile.anthropic_small_fast_model {
-        println!("⚡ 快速模型: {}", fast_model);
+    if profile.model_haiku.is_some()
+        || profile.model_sonnet.is_some()
+        || profile.model_opus.is_some()
+    {
+        println!(
+            "🧩 家族模型: {}{}{}",
+            profile.model_haiku.as_deref().unwrap_or("-"),
+            if profile.model_sonnet.is_some() {
+                " | "
+            } else {
+                ""
+            },
+            profile.model_sonnet.as_deref().unwrap_or("")
+        );
     }
-    println!();
 
-    // 设置环境变量并启动claude
     let mut cmd = Command::new("claude");
-    cmd.env("ANTHROPIC_AUTH_TOKEN", &profile.anthropic_auth_token);
-    cmd.env("ANTHROPIC_BASE_URL", &profile.anthropic_base_url);
+    // 必填环境变量
+    cmd.env("ANTHROPIC_AUTH_TOKEN", &token);
+    cmd.env("ANTHROPIC_BASE_URL", &profile.base_url);
 
-    // 条件设置可选的环境变量
-    if let Some(model) = &profile.anthropic_model {
-        cmd.env("ANTHROPIC_MODEL", model);
+    // 新映射的模型变量
+    if let Some(m) = &profile.model {
+        cmd.env("ANTHROPIC_MODEL", m);
+    }
+    if let Some(m) = &profile.model_haiku {
+        cmd.env("ANTHROPIC_DEFAULT_HAIKU_MODEL", m);
+    }
+    if let Some(m) = &profile.model_sonnet {
+        cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
+    }
+    if let Some(m) = &profile.model_opus {
+        cmd.env("ANTHROPIC_DEFAULT_OPUS_MODEL", m);
+    }
+    if let Some(max) = &profile.max_tokens {
+        cmd.env("CLAUDE_CODE_MAX_OUTPUT_TOKENS", max);
     }
 
-    if let Some(fast_model) = &profile.anthropic_small_fast_model {
-        cmd.env("ANTHROPIC_SMALL_FAST_MODEL", fast_model);
-    }
-
-    // 添加透传的参数
     if !claude_args.is_empty() {
         cmd.args(&claude_args);
         println!("📄 透传参数: {}", claude_args.join(" "));
-    } else {
-        println!(
-            "💡 提示: 可以直接在命令后添加参数透传给 claude 命令 (例如: ccode run myprofile --version 或 ccode run myprofile -- --help)"
-        );
     }
 
     match cmd.status() {
@@ -306,233 +274,147 @@ pub fn cmd_run(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> 
     Ok(())
 }
 
-/// 删除配置
-pub fn cmd_remove(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
+/// 列出 TOML 配置
+pub fn cmd_list_toml() -> AppResult<()> {
+    let config = match TomlConfig::load() {
+        Ok(c) => c,
+        Err(AppError::ConfigNotFound) => {
+            println!("📋 暂无配置，请创建 ~/.config/ccode/config.toml");
+            return Ok(());
+        }
+        Err(e) => return Err(e),
+    };
 
-    // 确认删除
+    if config.profiles.is_empty() {
+        println!("📋 暂无配置，请编辑 ~/.config/ccode/config.toml");
+        return Ok(());
+    }
+
+    let default_name = config.default.as_deref();
+    println!("📋 TOML 配置：");
+    println!();
+    for (name, p) in &config.profiles {
+        let default_marker = if Some(name.as_str()) == default_name {
+            " (默认)"
+        } else {
+            ""
+        };
+        println!("🔧 {name}{default_marker}");
+        println!("   📍 URL: {}", p.base_url);
+        println!("   🔑 env_key: {} (从 .env 或系统环境读取)", p.env_key);
+        if let Some(m) = &p.model {
+            println!("   🤖 model: {}", m);
+        }
+        if let Some(m) = &p.model_haiku {
+            println!("   🐦 haiku: {}", m);
+        }
+        if let Some(m) = &p.model_sonnet {
+            println!("   🎼 sonnet: {}", m);
+        }
+        if let Some(m) = &p.model_opus {
+            println!("   🎻 opus: {}", m);
+        }
+        if let Some(mt) = &p.max_tokens {
+            println!("   📦 max_tokens: {}", mt);
+        }
+        if let Some(c) = &p.comment {
+            println!("   📝 注释: {}", c);
+        }
+        println!();
+    }
+    Ok(())
+}
+
+/// 添加 TOML 配置（交互式）
+pub fn cmd_add_toml(name: String) -> AppResult<()> {
+    let mut config = TomlConfig::load_or_default()?;
+    if config.profiles.contains_key(&name) {
+        return Err(AppError::Config(format!("配置 '{name}' 已存在")));
+    }
+
+    println!("🔧 添加 TOML 配置: {name}");
+    println!();
+
+    // base_url（使用环境变量名提示）
+    print!("📍 请输入 ANTHROPIC_BASE_URL (如: https://api.anthropic.com): ");
+    io::stdout().flush().unwrap();
+    let mut base_url = String::new();
+    io::stdin().read_line(&mut base_url)?;
+    let base_url = base_url.trim().to_string();
+
+    // 令牌输入：直接输入 Key，程序将写入 .env 中自动生成的 name_key 变量
+    let env_key = crate::toml_config::derive_env_key_from_profile(&name);
+    print!("🔑 请输入 ANTHROPIC_AUTH_TOKEN（将保存为 .env 的 {env_key}）: ");
+    io::stdout().flush().unwrap();
+    let mut token_input = String::new();
+    io::stdin().read_line(&mut token_input)?;
+    let token_input = token_input.trim().to_string();
+
+    // 可选项
+    let model = read_optional_input("🤖 请输入 ANTHROPIC_MODEL (可选): ")?;
+    let model_haiku = read_optional_input("🐦 请输入 ANTHROPIC_DEFAULT_HAIKU_MODEL (可选): ")?;
+    let model_sonnet = read_optional_input("🎼 请输入 ANTHROPIC_DEFAULT_SONNET_MODEL (可选): ")?;
+    let model_opus = read_optional_input("🎻 请输入 ANTHROPIC_DEFAULT_OPUS_MODEL (可选): ")?;
+    let max_tokens = read_optional_input("📦 请输入 CLAUDE_CODE_MAX_OUTPUT_TOKENS (可选，如 32000): ")?;
+    let comment = read_optional_input("📝 请输入 comment (可选): ")?;
+
+    let profile = TomlProfile {
+        name: Some(name.clone()),
+        base_url,
+        env_key: env_key.clone(),
+        model,
+        model_haiku,
+        model_sonnet,
+        model_opus,
+        max_tokens,
+        comment,
+    };
+
+    TomlConfig::validate_profile(&profile)?;
+    config.add_profile(&name, profile)?;
+    config.save()?;
+
+    // 将 Key 写入 ~/.config/ccode/.env 的 {env_key}=... 中
+    let toml_path = TomlConfig::get_config_path()?;
+    crate::toml_config::persist_token_to_env(&toml_path, &env_key, &token_input)?;
+
+    println!("✅ 配置 '{name}' 已添加");
+    if config.default.as_deref() == Some(&name) {
+        println!("🎯 已设为默认配置");
+    }
+    Ok(())
+}
+
+/// 设置 TOML 默认配置
+pub fn cmd_use_toml(name: String) -> AppResult<()> {
+    let mut config = TomlConfig::load_or_default()?;
+    config.set_default(&name)?;
+    config.save()?;
+    println!("✅ 已将 '{name}' 设为默认配置");
+    Ok(())
+}
+
+/// 删除 TOML 配置
+pub fn cmd_remove_toml(name: String) -> AppResult<()> {
+    let mut config = TomlConfig::load_or_default()?;
     print!("⚠️  确定要删除配置 '{name}' 吗？(y/N): ");
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-
     let input = input.trim().to_lowercase();
     if input != "y" && input != "yes" {
         println!("❌ 取消删除");
         return Ok(());
     }
-
-    config.remove_profile(&name)?; // 这个方法会自动检测组类型
+    config.remove_profile(&name)?;
     config.save()?;
-
     println!("✅ 配置 '{name}' 已删除");
 
-    // 如果还有其他配置，显示当前默认配置
-    if !config.groups.direct.is_empty() {
-        if let Some(default_profile) = &config.default_profile
-            && let Some(direct) = &default_profile.direct
-        {
-            println!("🎯 当前默认Direct配置: {direct}");
-        }
+    if let Some(d) = &config.default {
+        println!("🎯 当前默认配置: {}", d);
     } else {
-        println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
+        println!("📋 暂无默认配置，可通过 'ccode use <name>' 设置");
     }
-
-    Ok(())
-}
-
-/// 列出配置（统一接口）
-pub fn cmd_list_with_group(group: Option<String>) -> AppResult<()> {
-    match group.as_deref() {
-        Some("direct") => cmd_list_direct(),
-        Some(g) => Err(AppError::Config(format!(
-            "未知的配置组: {g} (仅支持 direct)"
-        ))),
-        None => cmd_list_all(),
-    }
-}
-
-/// 添加配置（统一接口）
-pub fn cmd_add_with_group(name: String, group: Option<String>) -> AppResult<()> {
-    match group.as_deref() {
-        Some("direct") => cmd_add_direct(name),
-        Some(g) => Err(AppError::Config(format!(
-            "未知的配置组: {g} (仅支持 direct)"
-        ))),
-        None => cmd_add_direct(name), // 默认使用direct组
-    }
-}
-
-/// 设置默认配置（统一接口）
-pub fn cmd_use_with_group(name: String, group: Option<String>) -> AppResult<()> {
-    match group.as_deref() {
-        Some("direct") => cmd_use_direct(name),
-        Some(g) => Err(AppError::Config(format!(
-            "未知的配置组: {g} (仅支持 direct)"
-        ))),
-        None => cmd_use(name), // 向后兼容
-    }
-}
-
-/// 运行配置（统一接口）
-pub fn cmd_run_with_group(
-    name: Option<String>,
-    group: Option<String>,
-    claude_args: Vec<String>,
-) -> AppResult<()> {
-    match group.as_deref() {
-        Some("direct") => cmd_run_direct(name, claude_args),
-        Some(g) => Err(AppError::Config(format!(
-            "未知的配置组: {g} (仅支持 direct)"
-        ))),
-        None => cmd_run(name, claude_args), // 向后兼容，默认使用direct模式
-    }
-}
-
-/// 删除配置（统一接口）
-pub fn cmd_remove_with_group(name: String, group: Option<String>) -> AppResult<()> {
-    match group.as_deref() {
-        Some("direct") => cmd_remove_direct(name),
-        Some(g) => Err(AppError::Config(format!(
-            "未知的配置组: {g} (仅支持 direct)"
-        ))),
-        None => cmd_remove(name), // 向后兼容
-    }
-}
-
-/// 列出所有配置（显示所有组）
-pub fn cmd_list_all() -> AppResult<()> {
-    let config = match Config::load() {
-        Ok(config) => config,
-        Err(AppError::ConfigNotFound) => {
-            println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
-            return Ok(());
-        }
-        Err(e) => return Err(e),
-    };
-
-    let direct_profiles = config.list_direct_profiles();
-
-    if direct_profiles.is_empty() {
-        println!("📋 暂无配置，请使用 'ccode add <name>' 添加配置");
-        return Ok(());
-    }
-
-    println!("📋 所有配置：");
-    println!();
-
-    // 显示Direct组配置
-    if !direct_profiles.is_empty() {
-        println!("🔗 Direct组配置：");
-        for (name, profile, is_default) in direct_profiles {
-            let default_marker = if is_default { " (默认)" } else { "" };
-            println!("  🔧 {name}{default_marker}");
-            println!("     📍 URL: {}", profile.anthropic_base_url);
-            println!(
-                "     🔑 Token: {}...{}",
-                &profile.anthropic_auth_token[..7.min(profile.anthropic_auth_token.len())],
-                &profile.anthropic_auth_token
-                    [profile.anthropic_auth_token.len().saturating_sub(4)..]
-            );
-            profile.display_optional_fields("     ");
-            println!();
-        }
-    }
-
-    // 已移除 Router 组配置显示
-
-    Ok(())
-}
-
-/// 列出Direct组配置
-pub fn cmd_list_direct() -> AppResult<()> {
-    let config = match Config::load() {
-        Ok(config) => config,
-        Err(AppError::ConfigNotFound) => {
-            println!("📋 暂无Direct配置，请使用 'ccode add --group direct <name>' 添加配置");
-            return Ok(());
-        }
-        Err(e) => return Err(e),
-    };
-
-    let profiles = config.list_direct_profiles();
-
-    if profiles.is_empty() {
-        println!("📋 暂无Direct配置，请使用 'ccode add --group direct <name>' 添加配置");
-        return Ok(());
-    }
-
-    println!("📋 Direct组配置：");
-    println!();
-
-    for (name, profile, is_default) in profiles {
-        let default_marker = if is_default { " (默认)" } else { "" };
-        println!("🔧 {name}{default_marker}");
-        println!("   📍 URL: {}", profile.anthropic_base_url);
-        println!(
-            "   🔑 Token: {}...{}",
-            &profile.anthropic_auth_token[..7.min(profile.anthropic_auth_token.len())],
-            &profile.anthropic_auth_token[profile.anthropic_auth_token.len().saturating_sub(4)..]
-        );
-
-        profile.display_optional_fields("   ");
-        println!();
-    }
-
-    Ok(())
-}
-
-/// 添加Direct配置
-pub fn cmd_add_direct(name: String) -> AppResult<()> {
-    cmd_add(name) // 复用现有的逻辑
-}
-
-/// 设置默认Direct配置
-pub fn cmd_use_direct(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
-    config.set_default_direct(&name)?;
-    config.save()?;
-    println!("✅ 已将 '{name}' 设为默认Direct配置");
-    Ok(())
-}
-
-/// 运行Direct配置
-pub fn cmd_run_direct(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> {
-    cmd_run(name, claude_args) // 复用现有的逻辑
-}
-
-/// 删除Direct配置
-pub fn cmd_remove_direct(name: String) -> AppResult<()> {
-    let mut config = Config::load()?;
-
-    // 确认删除
-    print!("⚠️  确定要删除Direct配置 '{name}' 吗？(y/N): ");
-    io::stdout().flush().unwrap();
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    let input = input.trim().to_lowercase();
-    if input != "y" && input != "yes" {
-        println!("❌ 取消删除");
-        return Ok(());
-    }
-
-    config.remove_direct_profile(&name)?;
-    config.save()?;
-
-    println!("✅ Direct配置 '{name}' 已删除");
-
-    // 显示当前默认配置
-    if !config.groups.direct.is_empty() {
-        if let Some(default_profile) = &config.default_profile
-            && let Some(direct) = &default_profile.direct
-        {
-            println!("🎯 当前默认Direct配置: {direct}");
-        }
-    } else {
-        println!("📋 暂无Direct配置，请使用 'ccode add --group direct <name>' 添加配置");
-    }
-
     Ok(())
 }
 

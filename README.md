@@ -67,41 +67,75 @@ sudo cp target/release/ccode /usr/local/bin/
 
 ## 📖 使用指南
 
-### 🎯 Direct 模式（简单配置）
+### 🎯 Direct 模式（新配置：config.toml）
 
-适合简单的API切换需求，与传统版本完全兼容。
+自 v0.2.0 起，ccode 使用 `~/.config/ccode/config.toml` 进行配置管理。
 
-#### 添加Direct配置
+#### 字段映射（旧 → 新）
+- ANTHROPIC_SMALL_FAST_MODEL（弃用） → ANTHROPIC_DEFAULT_HAIKU_MODEL → `model_haiku`
+- ANTHROPIC_DEFAULT_HAIKU_MODEL → `model_haiku`
+- ANTHROPIC_DEFAULT_OPUS_MODEL → `model_opus`
+- ANTHROPIC_DEFAULT_SONNET_MODEL → `model_sonnet`
+- ANTHROPIC_MODEL → `model`
+- ANTHROPIC_AUTH_TOKEN → 通过 `env_key` 指定的环境变量读取（同级 `.env` 或系统环境）
+- ANTHROPIC_BASE_URL → `base_url`
+- CLAUDE_CODE_MAX_OUTPUT_TOKENS → `max_tokens`
+
+#### 配置文件位置
+- Linux/macOS: `~/.config/ccode/config.toml`
+- Windows: `%APPDATA%/ccode/config.toml`
+
+#### config.toml 示例
+```toml
+default = "uos-minimax2"
+
+[profiles.uos-minimax2]
+name = "uos-minimax2"
+base_url = "https://api.anthropic.com"
+env_key  = "uos_minimax2_key"       # 对应配置目录下 .env 中的变量名
+model = "claude-3-5-sonnet-latest"
+model_sonnet = "claude-3-5-sonnet-20241022"
+model_haiku  = "claude-3-haiku-20240307"
+model_opus   = "claude-3-opus-latest"
+max_tokens   = "32000"
+comment = "公司内部API"
+
+[profiles.anyrouter]
+name = "anyrouter"
+base_url = "https://api.example.com"
+env_key  = "anyrouter_key"
+```
+
+同级 `.env` 示例（可选，优先于系统环境加载）：
+```env
+# 文件路径：~/.config/ccode/.env
+uos_minimax2_key="sk-xxx..."
+anyrouter_key="sk-yyy..."
+```
+
+#### 使用 TOML 配置
 ```bash
-ccode add myapi --group direct
-# 或使用默认的direct组
+# 列出配置（自动识别 TOML）
+ccode list
+
+# 运行（未指定 name 时使用 default）
+ccode run                      # 使用 default
+ccode run uos-minimax2         # 指定 profile
+
+# 透传参数
+ccode run uos-minimax2 --version
+ccode run uos-minimax2 -- --help
+```
+
+#### 添加配置（交互式）
+```bash
 ccode add myapi
+# 按提示依次输入：
+# 1) ANTHROPIC_BASE_URL（如 https://api.anthropic.com）
+# 2) ANTHROPIC_AUTH_TOKEN（密钥值，工具会保存到配置目录 .env）
 ```
 
-按提示输入：
-- **ANTHROPIC_AUTH_TOKEN**: `your-api-token` (必需)
-- **ANTHROPIC_BASE_URL**: `https://api.example.com` (必需)
-- **ANTHROPIC_MODEL**: `claude-3-5-sonnet-20241022` (可选)
-- **ANTHROPIC_SMALL_FAST_MODEL**: `claude-3-haiku-20240307` (可选)
-- **描述**: `我的API服务` (可选)
-
-#### 使用Direct配置
-```bash
-# 列出Direct配置
-ccode list --group direct
-
-# 设置默认配置
-ccode use myapi --group direct
-
-# 启动claude
-ccode run myapi --group direct
-
-# 启动claude并透传参数（仅Direct模式支持）
-ccode run myapi --group direct --version
-ccode run myapi code --project myapp
-# 注意：对于可能冲突的参数（如--help），需要使用--分隔符：
-ccode run myapi -- --help
-```
+`ccode add/use/remove` 支持直接写入 `config.toml` 并使用同级 `.env` 保存密钥。
 
 <!-- Router/Provider 功能已移除 -->
 
@@ -110,17 +144,16 @@ ccode run myapi -- --help
 ### 🔄 命令
 
 ```bash
-# 列出配置
-ccode list [--group direct]
+# 列出配置（使用 config.toml）
+ccode list
 
-# 添加配置
-ccode add <name> [--group direct]
+# 添加/设置默认/删除（写入 config.toml）
+ccode add <name>
+ccode use <name>
+ccode remove <name>
 
-# 设置默认配置
-ccode use <name> [--group direct]
-
-# 启动 claude（支持参数透传）
-ccode run [name] [--group direct] [<claude_args>...]
+# 启动 claude（根据 config.toml 映射环境变量）
+ccode run [name] [<claude_args>...]
 
 # 示例：
 # ccode run myapi --version                    # 直接透传
@@ -135,44 +168,28 @@ ccode remove <name> [--group direct]
 
 ## 📁 配置文件
 
-### 配置存储位置
-- **Linux/macOS**: `~/.config/ccode/config.json`
-- **Windows**: `%APPDATA%/ccode/config.json`
+### 配置存储位置（新）
+- **Linux/macOS**: `~/.config/ccode/config.toml`
+- **Windows**: `%APPDATA%/ccode/config.toml`
 
-### ccode 配置文件结构（Direct）
-
-```json
-{
-  "version": "2.0",
-  "default_group": "direct",
-  "default_profile": {
-    "direct": "myapi"
-  },
-  "groups": {
-    "direct": {
-      "myapi": {
-        "ANTHROPIC_AUTH_TOKEN": "your-token",
-        "ANTHROPIC_BASE_URL": "https://api.example.com",
-        "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
-        "ANTHROPIC_SMALL_FAST_MODEL": "claude-3-haiku-20240307",
-        "description": "我的API服务",
-        "created_at": "2025-07-31T10:00:00Z"
-      }
-    }
-  }
-}
-```
+请在上述路径创建并维护 `config.toml` 与同级 `.env`。
 
 <!-- CCR 配置文件相关章节已移除 -->
 
 ## 🔧 工作原理
 
-### Direct模式
-1. 读取Direct配置中的认证信息和可选设置
-2. 设置必需环境变量：`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_BASE_URL`
-3. 条件设置可选环境变量：`ANTHROPIC_MODEL`、`ANTHROPIC_SMALL_FAST_MODEL`（仅在配置时设置）
-4. 可选择透传额外参数给claude命令
-5. 启动claude程序
+### Direct 模式（TOML）
+1. 解析 `~/.config/ccode/config.toml`，选取指定或默认 `profile`
+2. 加载同级 `.env`（若存在），并回落至系统环境
+3. 设置环境变量：
+   - `ANTHROPIC_AUTH_TOKEN` ← 由 `env_key` 指向的值
+   - `ANTHROPIC_BASE_URL` ← `base_url`
+   - `ANTHROPIC_MODEL` ← `model`（可选）
+   - `ANTHROPIC_DEFAULT_HAIKU_MODEL` ← `model_haiku`（可选）
+   - `ANTHROPIC_DEFAULT_SONNET_MODEL` ← `model_sonnet`（可选）
+   - `ANTHROPIC_DEFAULT_OPUS_MODEL` ← `model_opus`（可选）
+   - `CLAUDE_CODE_MAX_OUTPUT_TOKENS` ← `max_tokens`（可选）
+4. 透传参数并启动 `claude`
 
 <!-- Router 模式工作原理已移除 -->
 
@@ -196,8 +213,8 @@ ccode remove <name> [--group direct]
 - **配置文件**：ccode 仅管理配置，不包含服务管理功能
 
 ### 兼容性
-- **向后兼容**：现有 Direct 模式配置无需修改
-- **配置迁移**：自动从 v1.0 配置格式升级到 v2.0
+- **配置方式**：采用 `config.toml`；旧版 `config.json` 不再作为管理入口
+- **命令迁移**：`add/use/remove/list/run` 全部基于 `config.toml`
 
 ### 限制说明
 - ccode 不包含服务管理功能（start/stop/restart等）
@@ -311,3 +328,6 @@ cargo build --release
 --- 
 
 **最后更新**: 2025-08-10 | **架构版本**: v0.2.0（配置管理工具）
+[必填项说明]
+- 每个 profile 必填：`name`、`base_url`、`env_key`
+- 其他字段（`model*`、`max_tokens`、`comment`）均为可选

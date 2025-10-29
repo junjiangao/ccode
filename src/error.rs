@@ -9,6 +9,8 @@ pub enum AppError {
     Io(std::io::Error),
     /// JSON序列化/反序列化错误
     Json(serde_json::Error),
+    /// TOML 反序列化错误
+    Toml(String),
     /// 配置文件不存在
     ConfigNotFound,
     /// 指定的配置项不存在
@@ -25,6 +27,7 @@ impl fmt::Display for AppError {
             AppError::Config(msg) => write!(f, "配置错误: {msg}"),
             AppError::Io(err) => write!(f, "文件操作错误: {err}"),
             AppError::Json(err) => write!(f, "JSON格式错误: {err}"),
+            AppError::Toml(err) => write!(f, "TOML格式错误: {err}"),
             AppError::ConfigNotFound => {
                 write!(f, "配置文件不存在，请使用 'ccode add <name>' 添加配置")
             }
@@ -56,6 +59,12 @@ impl From<std::io::Error> for AppError {
 impl From<serde_json::Error> for AppError {
     fn from(err: serde_json::Error) -> Self {
         AppError::Json(err)
+    }
+}
+
+impl From<toml::de::Error> for AppError {
+    fn from(err: toml::de::Error) -> Self {
+        AppError::Toml(err.to_string())
     }
 }
 

@@ -8,8 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 🎯 核心架构（仅 Direct）
 
-- 直接配置 `ANTHROPIC_AUTH_TOKEN` 与 `ANTHROPIC_BASE_URL`（必填）。
-- 可选配置 `ANTHROPIC_MODEL`、`ANTHROPIC_SMALL_FAST_MODEL` 精细化控制。
+- 通过 `config.toml` 指定 `base_url` 与 `env_key`（从同级 `.env` 或系统环境读取 token）。
+- 可选配置 `model` 与家族模型：`model_haiku`、`model_sonnet`、`model_opus`（对应 `ANTHROPIC_DEFAULT_*` 环境变量）。
+- `ANTHROPIC_SMALL_FAST_MODEL` 已弃用，使用 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 代替。
 - 支持参数透传到 `claude` 命令。
 
 ### ⚠️ 重要说明
@@ -78,7 +79,7 @@ src/
 
 ### 配置系统架构
 
-- 配置路径: `~/.config/ccode/config.json`
+- 配置路径: `~/.config/ccode/config.toml`（若不存在则回退 `config.json`）
 
 ## 命令组织模式
 
@@ -103,15 +104,12 @@ src/
   - 支持官方API和第三方兼容API
 
 #### 可选环境变量
-- **`ANTHROPIC_MODEL`**: 指定默认使用的模型
-  - 精确控制claude使用的AI模型
-  - 例如：`claude-3-5-sonnet-20241022`
-  - 为空时使用claude的默认模型选择
-
-- **`ANTHROPIC_SMALL_FAST_MODEL`**: 指定快速响应场景的模型  
-  - 用于需要快速响应的轻量级任务
-  - 例如：`claude-3-haiku-20240307`
-  - 为空时使用claude的默认快速模型选择
+- **`ANTHROPIC_MODEL`**: 默认模型（对应 `model`）
+- **`ANTHROPIC_DEFAULT_HAIKU_MODEL`**: Haiku 系列（对应 `model_haiku`）
+- **`ANTHROPIC_DEFAULT_SONNET_MODEL`**: Sonnet 系列（对应 `model_sonnet`）
+- **`ANTHROPIC_DEFAULT_OPUS_MODEL`**: Opus 系列（对应 `model_opus`）
+- **`CLAUDE_CODE_MAX_OUTPUT_TOKENS`**: 最大输出 token（对应 `max_tokens`）
+- `ANTHROPIC_SMALL_FAST_MODEL`（已弃用）：请改用 `ANTHROPIC_DEFAULT_HAIKU_MODEL`
 
 ### 💡 使用场景
 
