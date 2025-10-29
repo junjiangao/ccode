@@ -1,0 +1,26 @@
+feat(config): 迁移至 config.toml + .env 持久化并完成 CLI 适配
+
+变更摘要
+- 新增 TOML 配置解析与校验（src/toml_config.rs），支持 profiles/default 结构。
+- 新增 .env 读取/写入：通过 `env_key` 读取 ANTHROPIC_AUTH_TOKEN；`ccode add` 直接输入 token 值并持久化为自动生成的 `{profile}_key`。
+- CLI 全量迁移：`add/use/remove/list/run` 统一基于 config.toml 实现。
+- 交互提示统一使用环境变量名（如 ANTHROPIC_BASE_URL、CLAUDE_CODE_MAX_OUTPUT_TOKENS）。
+- `list` 输出不再显示 name 字段，保留 base_url/env_key 等关键信息。
+- 环境变量映射：
+  - ANTHROPIC_DEFAULT_HAIKU_MODEL → model_haiku
+  - ANTHROPIC_DEFAULT_SONNET_MODEL → model_sonnet
+  - ANTHROPIC_DEFAULT_OPUS_MODEL → model_opus
+  - ANTHROPIC_MODEL → model
+  - ANTHROPIC_AUTH_TOKEN → 由 `env_key` 指向（.env/系统环境）
+  - ANTHROPIC_BASE_URL → base_url
+  - CLAUDE_CODE_MAX_OUTPUT_TOKENS → max_tokens
+- 依赖与错误处理：新增 toml、dotenvy；增加 TOML 错误类型，修复 clippy 警告。
+- 文档：README、CLAUDE.md 更新为以使用为中心的说明与示例。
+
+其他
+- 移除旧 JSON 命令路径（保留 legacy 代码并抑制未使用警告）。
+- 通过 cargo fmt/clippy/test 校验。
+
+BREAKING CHANGE
+- CLI 现以 config.toml 为唯一管理入口；旧版 config.json 不再作为命令入口。
+- `ccode add` 行为变化：输入的是 ANTHROPIC_AUTH_TOKEN 的值，工具自动生成 `env_key` 并写入配置目录 .env。

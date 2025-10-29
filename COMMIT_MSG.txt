@@ -1,0 +1,21 @@
+feat(config): switch to config.toml with TOML profiles, .env token storage, and full CLI migration
+
+Summary
+- Adopt config.toml as the managed configuration source and add TOML parsing + validation.
+- Add .env support: read ANTHROPIC_AUTH_TOKEN from `env_key`; on `ccode add`, accept token value and store it into .env under an auto-derived `{profile}_key`.
+- Migrate CLI commands (add/use/remove/list/run) to TOML implementations; interactive prompts use environment variable names (ANTHROPIC_BASE_URL, CLAUDE_CODE_MAX_OUTPUT_TOKENS), list output hides `name`.
+- Map new fields: model, model_haiku, model_sonnet, model_opus; set corresponding ANTHROPIC_* env vars at runtime; map max_tokens -> CLAUDE_CODE_MAX_OUTPUT_TOKENS.
+- Update docs (README, CLAUDE.md) to reflect TOML usage without implementation details and refresh examples.
+- Add dependencies: toml, dotenvy; extend error handling for TOML; remove old JSON command paths and warnings; fmt/clippy/test clean.
+
+User-facing changes
+- `ccode add` now asks for ANTHROPIC_BASE_URL and token value; stores token in `~/.config/ccode/.env` under an auto-generated key, and sets `env_key` to that key in config.toml.
+- `ccode list/use/remove/run` operate purely on config.toml.
+
+Docs
+- README: simplified to usage-driven guidance; no code internals; examples updated.
+- CLAUDE.md: updated env var mapping and config path.
+
+Internal
+- New: src/toml_config.rs (load/save/validate; derive_env_key_from_profile; persist_token_to_env; load_token_from_env)
+- Commands updated to TOML-first implementations and prompts.
