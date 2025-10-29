@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+版本: v0.3.0 | 更新日期: 2025-10-29
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目概述
@@ -10,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 通过 `config.toml` 指定 `base_url` 与 `env_key`（从同级 `.env` 或系统环境读取 token）。
 - 可选配置 `model` 与家族模型：`model_haiku`、`model_sonnet`、`model_opus`（对应 `ANTHROPIC_DEFAULT_*` 环境变量）。
-- `ANTHROPIC_SMALL_FAST_MODEL` 已弃用，使用 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 代替。
+- 兼容性：当 `model_haiku` 存在时，同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 与（兼容）`ANTHROPIC_SMALL_FAST_MODEL` 两个环境变量。
 - 支持参数透传到 `claude` 命令。
 
 ### ⚠️ 重要说明
@@ -70,16 +72,23 @@ cargo run -- <subcommand>
 
 ```
 src/
-├── main.rs          # CLI入口，命令路由和参数解析
-├── commands.rs      # 所有命令的具体实现逻辑
-├── config.rs        # ccode配置数据结构和管理
+├── main.rs          # CLI入口，命令路由和参数解析（包含启动自动迁移钩子）
+├── commands.rs      # 所有命令的具体实现逻辑（含 ccode config merge）
+├── toml_config.rs   # TOML 格式配置与 .env 读取/持久化
+├── migrate.rs       # JSON→TOML 迁移/合并实现（自动/手动）
+├── config.rs        # 旧 JSON 结构（仅迁移使用）
 ├── error.rs         # 统一错误处理
 └── lib.rs           # 库入口，模块导出
 ```
 
-### 配置系统架构
+### 配置系统架构（v0.3.0）
 
-- 配置路径: `~/.config/ccode/config.toml`（若不存在则回退 `config.json`）
+- 运行时配置：`~/.config/ccode/config.toml`（同级 `~/.config/ccode/.env` 保存密钥）。
+- 迁移策略：
+  - 自动迁移：存在 `config.json` 且不存在 `config.toml` 时，启动任意命令后自动迁移并备份，成功后移除 `config.json`。
+  - 手动迁移：当两者并存时，执行 `ccode config merge` 进行合并（同名 profile 跳过），成功后移除 `config.json`。
+  - 备份路径：`~/.config/ccode/config.json.bak-YYYYMMDD-HHMMSS`；失败不会删除 JSON，可手动回滚。
+  - JSON 不再作为运行时来源，仅用于迁移。
 
 ## 命令组织模式
 
@@ -89,6 +98,7 @@ src/
 - `use <name> [--group direct]` - 设置默认配置
 - `run [name] [--group direct] [<claude_args>...]` - 启动并透传参数到 `claude`
 - `remove <name> [--group direct]` - 删除配置
+ - `config merge` - 将旧版 `config.json` 合并/迁移到 `config.toml`（成功后移除 JSON）
 
 ## Direct 模式环境变量配置
 
@@ -109,7 +119,9 @@ src/
 - **`ANTHROPIC_DEFAULT_SONNET_MODEL`**: Sonnet 系列（对应 `model_sonnet`）
 - **`ANTHROPIC_DEFAULT_OPUS_MODEL`**: Opus 系列（对应 `model_opus`）
 - **`CLAUDE_CODE_MAX_OUTPUT_TOKENS`**: 最大输出 token（对应 `max_tokens`）
-- `ANTHROPIC_SMALL_FAST_MODEL`（已弃用）：请改用 `ANTHROPIC_DEFAULT_HAIKU_MODEL`
+- `ANTHROPIC_SMALL_FAST_MODEL`（已弃用）：为兼容，程序在 `model_haiku` 存在时仍会同时设置该变量。
+
+兼容性说明：当 `model_haiku` 存在时，运行时会同时注入 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 与 `ANTHROPIC_SMALL_FAST_MODEL` 两个变量。
 
 ### 💡 使用场景
 
@@ -209,3 +221,8 @@ cargo fmt
 
 ### 错误处理模式
 使用 `anyhow::Result<T>` 作为统一的错误返回类型（别名为 `AppResult<T>`），所有错误通过 `AppError` 枚举统一处理。
+
+## 迁移指引（摘要）
+
+- 自动：检测到 `config.json` 且缺少 `config.toml` 时自动迁移并备份，成功后删除 JSON。
+- 手动：`ccode config merge`；同名跳过；迁移默认 profile；写入 `.env`；成功后删除 JSON；失败不删除。

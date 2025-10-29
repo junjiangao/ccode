@@ -139,6 +139,69 @@ ccode add myapi
 
 <!-- Router/Provider 功能已移除 -->
 
+## 🔁 迁移指南（config.json → config.toml）
+
+自 v0.2.0 起，配置文件统一迁移为 `~/.config/ccode/config.toml`，密钥改为从同级 `~/.config/ccode/.env` 读取。
+
+### 自动迁移（开箱即用）
+- 触发条件：存在 `~/.config/ccode/config.json` 且不存在 `config.toml`。
+- 行为：运行任意 `ccode` 命令时自动迁移；迁移成功后删除 `config.json`，并生成备份。
+- 备份文件：`~/.config/ccode/config.json.bak-YYYYMMDD-HHMMSS`
+- 失败保护：任一步失败不会删除 `config.json`，备份仍保留。
+
+### 手动迁移/合并（推荐命令）
+
+当同时存在 `config.toml` 与 `config.json` 时，不会自动处理，建议使用合并命令：
+
+```bash
+# 将旧版 JSON 合并/迁移到 TOML，并在成功后移除 JSON
+ccode config merge
+```
+
+合并策略与输出说明：
+- 同名 profile 跳过（保留现有 TOML 的版本），新增 profile 自动写入。
+- 默认 profile：若 TOML 未设置且 JSON 有默认，则迁移默认值。
+- 输出示例（简化）：
+```
+✅ 迁移完成：共 3，迁移 2，跳过 1
+🆕 已创建 config.toml           # 或 🔗 已合并到现有 config.toml
+🎯 默认配置: demo
+🗄️  已备份旧 JSON: /home/user/.config/ccode/config.json.bak-20251029-114233
+🧹 已移除 config.json
+```
+
+### 字段与密钥迁移规则
+- JSON 字段映射到 TOML：
+  - `ANTHROPIC_BASE_URL` → `base_url`
+  - `ANTHROPIC_MODEL` → `model`
+  - `ANTHROPIC_SMALL_FAST_MODEL`（弃用）→ `model_haiku`
+  - 其他家族模型、最大输出等见上文“字段映射”。
+- 密钥迁移：
+  - `ANTHROPIC_AUTH_TOKEN` 的值迁移到同级 `.env`，变量名由 profile 名推导：`{profile}_key`（非字母数字改为下划线、小写，并确保以 `_key` 结尾）。
+  - TOML 中仅保存 `env_key`，运行时从 `.env` 或系统环境读取。
+
+`.env` 迁移后示例：
+```env
+# 文件：~/.config/ccode/.env
+myapi_key="sk-xxx..."
+anyrouter_key="sk-yyy..."
+```
+
+### 还原与回滚
+- 从备份还原：
+```bash
+mv ~/.config/ccode/config.json.bak-YYYYMMDD-HHMMSS ~/.config/ccode/config.json
+```
+- 如需完全回滚到 JSON 流程，可临时移除 `config.toml`；但不建议长期使用旧格式。
+
+### 迁移后自检
+```bash
+ccode list               # 检查 profile 与默认项
+cat ~/.config/ccode/config.toml | sed -n '1,120p'
+cat ~/.config/ccode/.env | sed -n '1,80p'
+ccode run demo --version
+```
+
 ## 📋 命令参考
 
 ### 🔄 命令
@@ -166,6 +229,13 @@ ccode remove <name> [--group direct]
 
 <!-- Router/Provider 快捷命令已移除 -->
 
+### 📋 ccode list 输出字段说明（v0.3.0）
+- `base_url`：目标 API 基础地址
+- `env_key`：从同级 `~/.config/ccode/.env` 或系统环境读取的变量名
+- `model` / `model_haiku` / `model_sonnet` / `model_opus`：模型或家族模型
+- `max_tokens`：最大输出 tokens（可选）
+- `说明`：对该配置的人类可读备注
+
 ## 📁 配置文件
 
 ### 配置存储位置（新）
@@ -186,6 +256,7 @@ ccode remove <name> [--group direct]
    - `ANTHROPIC_BASE_URL` ← `base_url`
    - `ANTHROPIC_MODEL` ← `model`（可选）
    - `ANTHROPIC_DEFAULT_HAIKU_MODEL` ← `model_haiku`（可选）
+   - `ANTHROPIC_SMALL_FAST_MODEL` ← `model_haiku`（兼容性：已弃用但仍设置）
    - `ANTHROPIC_DEFAULT_SONNET_MODEL` ← `model_sonnet`（可选）
    - `ANTHROPIC_DEFAULT_OPUS_MODEL` ← `model_opus`（可选）
    - `CLAUDE_CODE_MAX_OUTPUT_TOKENS` ← `max_tokens`（可选）
@@ -194,6 +265,18 @@ ccode remove <name> [--group direct]
 <!-- Router 模式工作原理已移除 -->
 
 <!-- 架构图（CCR 集成）已移除 -->
+
+## 📝 版本变更
+
+### v0.3.0（2025-10-29）
+- 新增：自动迁移功能（存在 `config.json` 且无 `config.toml` 时自动迁移并备份）。
+- 新增：`ccode config merge` 主动迁移/合并旧版 JSON；成功后移除 `config.json`，保留备份。
+- 兼容：当 `model_haiku` 已设置时，同时注入环境变量 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 与 `ANTHROPIC_SMALL_FAST_MODEL`（后者为兼容旧变量）。
+- 文档：新增“迁移指南”，更新“工作原理/环境变量映射”。
+
+### v0.2.0（2025-08-10）
+- 变更：配置改为 `~/.config/ccode/config.toml` + `.env` 的新架构。
+- 功能：`list/add/use/remove/run` 全量基于 TOML；支持参数透传与 `--` 分隔。
 
 ## 🎯 使用场景
 
@@ -327,7 +410,7 @@ cargo build --release
 
 --- 
 
-**最后更新**: 2025-08-10 | **架构版本**: v0.2.0（配置管理工具）
+**最后更新**: 2025-10-29 | **架构版本**: v0.3.0（配置管理工具）
 [必填项说明]
 - 每个 profile 必填：`name`、`base_url`、`env_key`
 - 其他字段（`model*`、`max_tokens`、`comment`）均为可选

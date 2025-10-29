@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult};
+use crate::migrate;
 use crate::toml_config::{TomlConfig, TomlProfile, load_token_from_env};
 use std::io::{self, Write};
 use std::process::Command;
@@ -195,6 +196,28 @@ pub fn cmd_remove_with_group(name: String, _group: Option<String>) -> AppResult<
     cmd_remove_toml(name)
 }
 
+/// 主动触发 JSON→TOML 迁移/合并
+pub fn cmd_config_merge() -> AppResult<()> {
+    let report = migrate::manual_merge()?;
+
+    println!(
+        "✅ 迁移完成：共 {}，迁移 {}，跳过 {}",
+        report.profiles_total, report.profiles_migrated, report.profiles_skipped
+    );
+    if report.created_toml {
+        println!("🆕 已创建 config.toml");
+    }
+    if report.merged_into_existing {
+        println!("🔗 已合并到现有 config.toml（同名跳过）");
+    }
+    if let Some(d) = report.default_set {
+        println!("🎯 默认配置: {}", d);
+    }
+    println!("🗄️  已备份旧 JSON: {}", report.backup_path.display());
+    println!("🧹 已移除 config.json");
+    Ok(())
+}
+
 /// 使用 TOML 新格式运行 claude
 pub fn cmd_run_toml(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> {
     let config = TomlConfig::load()?;
@@ -235,7 +258,10 @@ pub fn cmd_run_toml(name: Option<String>, claude_args: Vec<String>) -> AppResult
         cmd.env("ANTHROPIC_MODEL", m);
     }
     if let Some(m) = &profile.model_haiku {
+        // 新变量
         cmd.env("ANTHROPIC_DEFAULT_HAIKU_MODEL", m);
+        // 兼容变量（已弃用，但为向后兼容继续设置）
+        cmd.env("ANTHROPIC_SMALL_FAST_MODEL", m);
     }
     if let Some(m) = &profile.model_sonnet {
         cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
@@ -300,8 +326,8 @@ pub fn cmd_list_toml() -> AppResult<()> {
             ""
         };
         println!("🔧 {name}{default_marker}");
-        println!("   📍 URL: {}", p.base_url);
-        println!("   🔑 env_key: {} (从 .env 或系统环境读取)", p.env_key);
+        println!("   📍 base_url: {}", p.base_url);
+        println!("   🔑 env_key: {}", p.env_key);
         if let Some(m) = &p.model {
             println!("   🤖 model: {}", m);
         }
@@ -318,7 +344,7 @@ pub fn cmd_list_toml() -> AppResult<()> {
             println!("   📦 max_tokens: {}", mt);
         }
         if let Some(c) = &p.comment {
-            println!("   📝 注释: {}", c);
+            println!("   📝 说明: {}", c);
         }
         println!();
     }
@@ -355,7 +381,8 @@ pub fn cmd_add_toml(name: String) -> AppResult<()> {
     let model_haiku = read_optional_input("🐦 请输入 ANTHROPIC_DEFAULT_HAIKU_MODEL (可选): ")?;
     let model_sonnet = read_optional_input("🎼 请输入 ANTHROPIC_DEFAULT_SONNET_MODEL (可选): ")?;
     let model_opus = read_optional_input("🎻 请输入 ANTHROPIC_DEFAULT_OPUS_MODEL (可选): ")?;
-    let max_tokens = read_optional_input("📦 请输入 CLAUDE_CODE_MAX_OUTPUT_TOKENS (可选，如 32000): ")?;
+    let max_tokens =
+        read_optional_input("📦 请输入 CLAUDE_CODE_MAX_OUTPUT_TOKENS (可选，如 32000): ")?;
     let comment = read_optional_input("📝 请输入 comment (可选): ")?;
 
     let profile = TomlProfile {

@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod error;
+mod migrate;
 mod toml_config;
 
 use clap::{Parser, Subcommand};
@@ -12,7 +13,7 @@ use error::AppResult;
 #[derive(Parser)]
 #[command(name = "ccode")]
 #[command(about = "Claude Code 环境切换工具", long_about = None)]
-#[command(version = "0.2.0")]
+#[command(version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -61,9 +62,24 @@ enum Commands {
         #[arg(long)]
         group: Option<String>,
     },
+    /// 配置相关操作
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// 将旧版 config.json 迁移/合并到 config.toml
+    Merge {},
 }
 
 fn main() -> AppResult<()> {
+    // 开机自动迁移：仅在存在 JSON 且缺少 TOML 时执行
+    if let Err(e) = crate::migrate::auto_migrate_if_needed() {
+        eprintln!("⚠️ 自动迁移失败: {e}");
+    }
     let cli = Cli::parse();
 
     match cli.command {
@@ -77,5 +93,8 @@ fn main() -> AppResult<()> {
             claude_args,
         } => commands::cmd_run_with_group(name, group, claude_args),
         Commands::Remove { name, group } => commands::cmd_remove_with_group(name, group),
+        Commands::Config { action } => match action {
+            ConfigAction::Merge {} => commands::cmd_config_merge(),
+        },
     }
 }
