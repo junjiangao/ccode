@@ -22,7 +22,7 @@
 
 ### 🛠️ 工作模式
 - **Direct模式**：传统的token+base_url配置方式，直接启动claude程序
- 
+
 
 ## 🚀 快速开始
 
@@ -87,18 +87,18 @@ sudo cp target/release/ccode /usr/local/bin/
 
 #### config.toml 示例
 ```toml
-default = "uos-minimax2"
+default = "minimax-m2"
 
-[profiles.uos-minimax2]
-name = "uos-minimax2"
+[profiles.minimax-m2]
+name = "minimax-m2"
 base_url = "https://api.anthropic.com"
-env_key  = "uos_minimax2_key"       # 对应配置目录下 .env 中的变量名
+env_key  = "minimax-m2_key"       # 对应配置目录下 .env 中的变量名
 model = "claude-3-5-sonnet-latest"
 model_sonnet = "claude-3-5-sonnet-20241022"
 model_haiku  = "claude-3-haiku-20240307"
 model_opus   = "claude-3-opus-latest"
 max_tokens   = "32000"
-comment = "公司内部API"
+comment = "测试站点"
 
 [profiles.anyrouter]
 name = "anyrouter"
@@ -109,7 +109,7 @@ env_key  = "anyrouter_key"
 同级 `.env` 示例（可选，优先于系统环境加载）：
 ```env
 # 文件路径：~/.config/ccode/.env
-uos_minimax2_key="sk-xxx..."
+minimax-m2_key="sk-xxx..."
 anyrouter_key="sk-yyy..."
 ```
 
@@ -120,11 +120,11 @@ ccode list
 
 # 运行（未指定 name 时使用 default）
 ccode run                      # 使用 default
-ccode run uos-minimax2         # 指定 profile
+ccode run minimax-m2         # 指定 profile
 
 # 透传参数
-ccode run uos-minimax2 --version
-ccode run uos-minimax2 -- --help
+ccode run minimax-m2 --version
+ccode run minimax-m2 -- --help
 ```
 
 #### 添加配置（交互式）
@@ -384,7 +384,7 @@ cargo build --release
 
 - **🚀 自动发布**: git tag推送触发
   - 多平台二进制构建
-  - GitHub Releases自动创建  
+  - GitHub Releases自动创建
   - 源码归档和资产上传
 
 ## 📄 许可证
@@ -408,7 +408,7 @@ cargo build --release
 - 添加适当的测试覆盖
 - 更新相关文档
 
---- 
+---
 
 **最后更新**: 2025-10-29 | **架构版本**: v0.3.0（配置管理工具）
 [必填项说明]
