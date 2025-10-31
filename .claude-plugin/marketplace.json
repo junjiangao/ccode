@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "ccode-plugins",
+  "version": "1.0.0",
+  "description": "ccode 的 Claude Code 插件集合。当前包含 ccode-notify：通过 hooks 以轻量方式为会话添加系统桌面通知能力（零配置、即装即用，思路参考 explanatory-output-style 的 hooks 注入模式）",
+  "owner": {
+    "name": "junjiangao",
+    "email": "junjiangao@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "ccode-notify",
+      "description": "为 Claude Code 增加系统桌面通知：当需要用户交互时提醒、任务完成/中断/报错时提示（Notification/Stop hooks，基于 notify-send/libnotify）",
+      "source": "./plugins/ccode-notify",
+      "category": "tools"
+    }
+  ]
+}

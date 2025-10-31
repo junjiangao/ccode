@@ -1,0 +1,27 @@
+{
+  "description": "在需要用户交互或会话停止时发送系统桌面通知（Notification 与 Stop hooks，基于 notify-send/libnotify）",
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks-handlers/notify-interaction.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks-handlers/notify-stop.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

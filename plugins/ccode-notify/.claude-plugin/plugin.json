@@ -1,0 +1,9 @@
+{
+  "name": "ccode-notify",
+  "version": "1.0.0",
+  "description": "在需要用户交互或会话停止时发送系统桌面通知（Notification/Stop hooks，基于 notify-send/libnotify；思路参考 explanatory-output-style 的 hooks 注入模式）",
+  "author": {
+    "name": "junjiangao",
+    "email": "junjiangao@gmail.com"
+  }
+}
