@@ -233,7 +233,72 @@ alerts:
 
 ## 第三部分：MCP 工具规范
 
-### 标准结构
+### Codex MCP 工具
+
+#### 开启 Codex 会话
+
+**工具名称**：`mcp__codex-mcp-tool__codex`
+
+**完整调用示例**：
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "model": "gpt-5-codex",
+    "sandbox": "danger-full-access",
+    "approval-policy": "on-failure",
+    "prompt": "<任务描述>",
+    "cwd": "<可选：工作目录>"
+  }
+}
+```
+
+**参数说明**：
+- `model`（必需）：模型选择，推荐 `"gpt-5-codex"` 或 `"gpt-5"`
+- `sandbox`（必需）：沙盒模式
+  - `"read-only"` - 仅读取
+  - `"workspace-write"` - 可写入工作区
+  - `"danger-full-access"` - 完全访问
+- `approval-policy`（必需）：审批策略
+  - `"untrusted"` - 无需审批
+  - `"on-failure"` - 失败时审批
+  - `"on-request"` - 按需审批
+  - `"never"` - 从不审批
+- `prompt`（必需）：任务描述
+- `cwd`（可选）：工作目录路径
+
+**返回值**：
+```json
+{
+  "conversationId": "<字符串>",
+  ...
+}
+```
+
+⚠️ **重要**：保存返回的 `conversationId` 用于后续对话。
+
+#### 继续 Codex 会话
+
+**工具名称**：`mcp__codex-mcp-tool__codex-reply`
+
+**完整调用示例**：
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "conversationId": "<上步返回的 conversationId>",
+    "prompt": "<补充问题或新指令>"
+  }
+}
+```
+
+**参数说明**：
+- `conversationId`（必需）：会话标识符
+- `prompt`（必需）：新的提示或问题
+
+---
+
+### MCP 标准结构
 
 ```json
 {

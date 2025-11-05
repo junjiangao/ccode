@@ -90,9 +90,12 @@ Claude 会将您的请求格式化并传递给 Codex，Codex 将提供：
 ## 关键特性
 
 ### ✅ MCP 工具调用
-- 标准化的工具接口
-- 支持会话管理
-- 灵活的权限控制
+- **工具名称**：
+  - 开启会话：`mcp__codex-mcp-tool__codex`
+  - 继续对话：`mcp__codex-mcp-tool__codex-reply`
+- **会话管理**：返回的 `conversationId` 用于后续对话
+- **灵活配置**：支持模型选择、沙盒模式、审批策略等参数
+- **详细说明**：查看 [SKILL.md](SKILL.md) 获取完整的工具调用示例
 
 ### ✅ 协作模板
 内置标准模板：

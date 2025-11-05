@@ -27,33 +27,45 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 
 ### 工具初始化
 
+**MCP 工具名称**：`mcp__codex-mcp-tool__codex`
+
 **开启会话**（必须设置固定参数）：
 
 #### 默认模型：gpt-5-codex
 适用于大多数复杂技术任务和分析工作：
+
+**完整工具调用示例**：
 ```json
 {
-  "model": "gpt-5-codex",
-  "sandbox": "danger-full-access",
-  "approval-policy": "on-failure",
-  "prompt": "<需求描述或任务说明>",
-  "cwd": "<可选：工程路径>"
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "model": "gpt-5-codex",
+    "sandbox": "danger-full-access",
+    "approval-policy": "on-failure",
+    "prompt": "<需求描述或任务说明>",
+    "cwd": "<可选：工程路径>"
+  }
 }
 ```
 
 #### 高级模型：gpt-5
 适用于特别复杂的任务或特殊指定场景：
+
+**完整工具调用示例**：
 ```json
 {
-  "model": "gpt-5",
-  "sandbox": "danger-full-access",
-  "approval-policy": "on-failure",
-  "prompt": "<需求描述或任务说明>",
-  "cwd": "<可选：工程路径>"
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "model": "gpt-5",
+    "sandbox": "danger-full-access",
+    "approval-policy": "on-failure",
+    "prompt": "<需求描述或任务说明>",
+    "cwd": "<可选：工程路径>"
+  }
 }
 ```
 
-返回：`{ session_id: "<string>", ... }`
+**返回值**：`{ conversationId: "<string>", ... }`
 
 ### 工具调用参数
 
@@ -85,14 +97,20 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 
 ### 继续对话
 
+**MCP 工具名称**：`mcp__codex-mcp-tool__codex-reply`
+
+**完整工具调用示例**：
 ```json
 {
-  "session_id": "<上步返回的 session_id>",
-  "prompt": "<补充问题或新指令>"
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "conversationId": "<上步返回的 conversationId>",
+    "prompt": "<补充问题或新指令>"
+  }
 }
 ```
 
-⚠️ **会话管理**：保存返回的 `session_id`，失效时重新初始化。
+⚠️ **会话管理**：保存返回的 `conversationId`，会话失效时需重新初始化。
 
 ## 协作模板
 
@@ -165,29 +183,6 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 - 跳过测试 Codex 提出的解决方案
 - 不理解推理过程就实施
 - 忘记检查与现有系统的兼容性
-
-## 输出处理
-
-### 参数透传方式
-
-支持两种方式将参数透传给 Claude：
-
-1. **直接透传**（推荐）
-   ```bash
-   ccode run [name] <claude_args>...
-   ```
-
-2. **使用 `--` 分隔符**（避免冲突）
-   ```bash
-   ccode run [name] -- <claude_args>...
-   ```
-
-### 冲突处理
-当参数与 ccode 自身参数冲突时，使用 `--` 分隔符：
-```bash
-ccode run myapi -- --help  # ✅ 显示Claude帮助
-ccode run myapi --help     # ❌ 显示ccode帮助
-```
 
 ## 参考文档
 
