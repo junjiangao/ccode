@@ -26,18 +26,34 @@ description: 智能 Git 提交助手：审查代码变更、分析提交历史�
 
 ### 1. 检查暂存区状态
 ```bash
+# 检查暂存区
 git status --porcelain
 git diff --cached --stat
+
+# 如果暂存区为空，列出工作区文件
+git status --short
+git diff --name-status
 ```
 
 **决策逻辑**：
 - **暂存区非空** → 直接使用暂存区文件
-- **暂存区为空** → 询问用户确认提交范围和文件
+- **暂存区为空** → 列出工作区修改文件，询问用户确认提交范围
 
 ### 2. 用户确认（暂存区为空时）
+**列出工作区文件**：
+```bash
+# 获取所有修改、新增、删除的文件
+git status --short
+# 输出格式：
+#  M src/main.rs        (修改)
+#  A src/config.rs      (新增)
+#  D old/legacy.rs      (删除)
+# ?? untracked.txt      (未跟踪)
+```
+
 使用 `AskUserQuestion` 工具询问：
 - 提交所有修改的文件？
-- 提交特定文件？（列出可选文件）
+- 提交特定文件？（展示上述文件清单供选择）
 - 取消提交？
 
 根据用户选择执行 `git add` 操作。
@@ -65,9 +81,15 @@ git log --format="%s" -20
 ### 5. 读取项目提交规范
 从 Memory 中查找项目级提交规范：
 ```
-mcp__memory__search_nodes(query: "commit convention")
-mcp__memory__open_nodes(names: ["project:ccode:commit-convention"])
+# 使用项目级精确查询，避免跨项目污染
+mcp__memory__search_nodes(query: "project:<repo>:commit-convention")
+mcp__memory__open_nodes(names: ["project:<repo>:commit-convention"])
 ```
+
+**命名空间说明**：
+- `<repo>` 应替换为实际的仓库名称（如 `ccode`、`myproject`）
+- 使用 `project:` 前缀确保查询范围限定在当前项目
+- 避免使用模糊查询（如 `"commit convention"`），防止匹配到其他项目的规范
 
 **规范来源优先级**：
 1. Memory 中的项目规范
@@ -130,7 +152,7 @@ git log -1 --oneline
 {
   "name": "mcp__memory__search_nodes",
   "parameters": {
-    "query": "commit convention"
+    "query": "project:<repo>:commit-convention"
   }
 }
 ```
@@ -139,10 +161,12 @@ git log -1 --oneline
 {
   "name": "mcp__memory__open_nodes",
   "parameters": {
-    "names": ["project:ccode:commit-convention"]
+    "names": ["project:<repo>:commit-convention"]
   }
 }
 ```
+
+**注意**：`<repo>` 应替换为实际仓库名，如 `project:ccode:commit-convention`
 
 ### Sequential Thinking 工具
 ```json
@@ -161,19 +185,19 @@ git log -1 --oneline
 
 ### 标准提交流程
 ```markdown
-1. 检查暂存区状态
+1. 检查暂存区状态（git status --porcelain, git diff --cached --stat）
 2. 如果暂存区为空：
-   - 列出所有修改的文件
-   - 询问用户选择提交范围
-   - 执行 git add
+   - 使用 git status --short 列出所有工作区修改文件
+   - 询问用户选择提交范围（全部/特定文件/取消）
+   - 根据选择执行 git add
 3. 简单代码审查（语法、明显问题）
-4. 分析最近 20 条提交历史
-5. 从 Memory 读取项目提交规范
+4. 分析最近 20 条提交历史（git log --format="%s" -20）
+5. 从 Memory 读取项目提交规范（使用 project:<repo>:commit-convention 精确查询）
 6. 使用 Sequential Thinking 生成提交信息
 7. 展示变更摘要和提交信息
 8. 等待用户确认
 9. 执行 git commit
-10. 验证提交成功
+10. 验证提交成功（git log -1 --oneline）
 ```
 
 ### 提交信息生成模板
@@ -201,7 +225,7 @@ git log -1 --oneline
   "name": "mcp__memory__create_entities",
   "parameters": {
     "entities": [{
-      "name": "project:ccode:commit-convention",
+      "name": "project:<repo>:commit-convention",
       "entityType": "convention",
       "observations": [
         "使用 Conventional Commits 格式：<type>(<scope>): <subject>",
@@ -214,6 +238,12 @@ git log -1 --oneline
   }
 }
 ```
+
+**命名规范**：
+- 实体名称格式：`project:<repo>:commit-convention`
+- `<repo>` 替换为实际仓库名（如 `ccode`、`myproject`）
+- 使用 kebab-case 命名风格
+- 确保命名空间隔离，避免跨项目污染
 
 ### 示例规范
 ```
