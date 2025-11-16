@@ -20,7 +20,8 @@
       "source": "./plugins/ccode-skills",
       "strict": false,
       "skills": [
-        "./codex-mcp"
+        "./codex-mcp",
+        "./git-commit"
       ]
     }
   ]
