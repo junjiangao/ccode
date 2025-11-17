@@ -1,23 +1,36 @@
 # CLAUDE.md
 
-版本: v0.3.0 | 更新日期: 2025-10-29
+版本: v0.4.0 | 更新日期: 2025-11-17
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目概述
 
-`ccode` 是一个用 Rust 编写的命令行配置管理工具，专为 `claude` CLI 的 Direct 模式配置与切换而设计，提供多配置管理与一键启动体验。
+**`ccode` 是一个双重性质的项目**：
 
-### 🎯 核心架构（仅 Direct）
+1. **Rust CLI 工具**：用于管理 `claude` CLI 的 Direct 模式配置与快速切换
+2. **Claude Code 插件仓库**：提供系统通知、智能提交等扩展功能
+
+两个系统独立运行但互补协作：CLI 工具负责配置管理与启动，插件系统扩展 Claude Code 的功能。
+
+### 🎯 CLI 工具核心架构（仅 Direct）
 
 - 通过 `config.toml` 指定 `base_url` 与 `env_key`（从同级 `.env` 或系统环境读取 token）。
 - 可选配置 `model` 与家族模型：`model_haiku`、`model_sonnet`、`model_opus`（对应 `ANTHROPIC_DEFAULT_*` 环境变量）。
 - 兼容性：当 `model_haiku` 存在时，同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 与（兼容）`ANTHROPIC_SMALL_FAST_MODEL` 两个环境变量。
 - 支持参数透传到 `claude` 命令。
 
+### 🔌 插件系统概览
+
+- **ccode-notify**：桌面通知插件（Notification/Stop hooks）
+- **ccode-skills**：技能集合插件
+  - `codex-mcp`：复杂技术任务协作
+  - `git-commit`：智能 Git 提交助手
+
 ### ⚠️ 重要说明
 
-- `ccode` 仅管理配置与启动，不包含服务管理功能。
+- CLI 工具仅管理配置与启动，不包含服务管理功能。
+- 插件通过 `.claude-plugin/marketplace.json` 注册到 Claude Code。
 
 ## 开发命令
 
@@ -68,7 +81,7 @@ cargo run -- <subcommand>
 - **时间处理**：chrono
 - **错误处理**：anyhow
 
-### 核心模块结构
+### CLI 工具模块结构
 
 ```
 src/
@@ -80,6 +93,135 @@ src/
 ├── error.rs         # 统一错误处理
 └── lib.rs           # 库入口，模块导出
 ```
+
+## 插件系统架构
+
+### 插件组织结构
+
+```
+plugins/
+├── ccode-notify/              # 桌面通知插件
+│   ├── .claude-plugin/
+│   │   └── plugin.json        # 插件元数据
+│   ├── hooks/
+│   │   └── hooks.json         # Notification & Stop hooks 配置
+│   └── hooks-handlers/
+│       ├── notify-interaction.py  # 交互提醒脚本
+│       └── notify-stop.py         # 会话停止提醒脚本
+│
+└── ccode-skills/              # 技能集合插件
+    ├── .claude-plugin/
+    │   └── plugin.json        # 插件元数据
+    ├── codex-mcp/             # Codex MCP 协作技能
+    │   ├── SKILL.md           # 技能定义（Claude Code 读取）
+    │   ├── README.md          # 快速入门
+    │   ├── REFERENCE.md       # 完整参考
+    │   └── HANDOFF_CHECKLIST.md
+    │
+    └── git-commit/            # Git 提交助手技能
+        ├── SKILL.md           # 技能定义
+        ├── README.md          # 快速入门
+        └── REFERENCE.md       # 完整参考
+```
+
+### 插件注册
+
+插件通过 `.claude-plugin/marketplace.json` 注册：
+
+```json
+{
+  "plugins": [
+    {
+      "name": "ccode-notify",
+      "path": "plugins/ccode-notify"
+    },
+    {
+      "name": "ccode-skills",
+      "path": "plugins/ccode-skills"
+    }
+  ]
+}
+```
+
+### Hooks 插件：ccode-notify
+
+**功能**：
+- **Notification Hook**：Claude 等待用户输入时发送桌面通知
+- **Stop Hook**：会话停止时根据原因（complete/user_stop/error）发送不同通知
+
+**技术实现**：
+- 基于 `notify-send`（libnotify）
+- 脚本超时 5 秒，失败不中断会话
+- 零配置，即装即用
+
+**依赖安装**：
+```bash
+# Debian/Ubuntu
+sudo apt-get install -y libnotify-bin
+
+# Arch
+sudo pacman -S libnotify
+
+# Fedora
+sudo dnf install libnotify
+```
+
+### Skills 插件：ccode-skills
+
+#### 技能 1：codex-mcp
+
+**用途**：通过 MCP 工具调用 Codex 处理复杂技术任务
+
+**触发场景**：
+- 复杂算法设计（>10行核心逻辑）
+- 性能优化（p99 延迟、状态机）
+- 架构评审（10x 扩展）
+- 代码审查（线程安全、内存泄漏）
+
+**MCP 工具调用**：
+```json
+// 开启会话
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "model": "gpt-5-codex",
+    "sandbox": "danger-full-access",
+    "approval-policy": "on-failure",
+    "prompt": "<任务描述>",
+    "cwd": "<工程路径>"
+  }
+}
+
+// 继续对话
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "conversationId": "<session_id>",
+    "prompt": "<补充问题>"
+  }
+}
+```
+
+#### 技能 2：git-commit
+
+**用途**：智能化 Git 提交工作流
+
+**完整工作流程**（8 步）：
+1. 检查暂存区（`git status --porcelain`、`git diff --cached --stat`）
+2. 用户确认（暂存区为空时使用 `AskUserQuestion` 询问提交范围）
+3. 简单代码审查（语法错误、调试代码、敏感信息）
+4. 分析提交历史（`git log --format="%s" -20`）
+5. 读取项目规范（从 Memory 查询 `project:<repo>:commit-convention`）
+6. 生成提交信息（使用 `mcp__sequential-thinking__sequentialthinking`）
+7. 展示摘要（变更统计 + 提交信息 + 审查结果）
+8. 执行提交（用户确认后执行 `git commit`）
+
+**Memory 命名规范**：
+```
+project:<repo>:commit-convention
+```
+- 使用 `project:` 前缀确保命名空间隔离
+- `<repo>` 替换为实际仓库名（如 `ccode`）
 
 ### 配置系统架构（v0.3.0）
 
@@ -221,6 +363,143 @@ cargo fmt
 
 ### 错误处理模式
 使用 `anyhow::Result<T>` 作为统一的错误返回类型（别名为 `AppResult<T>`），所有错误通过 `AppError` 枚举统一处理。
+
+## 插件开发指引
+
+### Hooks 插件开发
+
+**基本结构**：
+```
+plugin-name/
+├── .claude-plugin/
+│   └── plugin.json          # 插件元数据
+├── hooks/
+│   └── hooks.json           # Hooks 配置
+└── hooks-handlers/
+    └── handler-script.py    # 处理脚本
+```
+
+**plugin.json 示例**：
+```json
+{
+  "name": "plugin-name",
+  "version": "1.0.0",
+  "description": "插件描述",
+  "type": "hooks"
+}
+```
+
+**hooks.json 配置**：
+```json
+{
+  "hooks": {
+    "Notification": [{
+      "hooks": [{
+        "type": "command",
+        "command": "${CLAUDE_PLUGIN_ROOT}/hooks-handlers/handler.py",
+        "timeout": 5
+      }]
+    }]
+  }
+}
+```
+
+**设计原则**：
+- 脚本超时设置合理（建议 5 秒）
+- 失败不中断主流程（以 0 退出）
+- 使用 `${CLAUDE_PLUGIN_ROOT}` 动态路径
+- 轻量、非侵入、失败安全
+
+### Skills 插件开发
+
+**基本结构**：
+```
+skill-name/
+├── SKILL.md              # 技能定义（必需）
+├── README.md             # 快速入门
+└── REFERENCE.md          # 完整参考
+```
+
+**SKILL.md 格式**：
+```markdown
+---
+name: skill-name
+description: 技能简短描述
+---
+
+# 技能名称
+
+## 使用场景
+- 场景 1
+- 场景 2
+
+## 工作流程
+1. 步骤 1
+2. 步骤 2
+
+## MCP 工具调用
+\`\`\`json
+{
+  "name": "mcp__tool__name",
+  "parameters": {...}
+}
+\`\`\`
+```
+
+**文档组织**：
+- **SKILL.md**：Claude Code 读取的核心定义
+- **README.md**：用户快速入门指南
+- **REFERENCE.md**：完整技术参考文档
+
+### 插件注册流程
+
+1. 在 `.claude-plugin/marketplace.json` 添加插件：
+```json
+{
+  "plugins": [
+    {
+      "name": "your-plugin",
+      "path": "plugins/your-plugin"
+    }
+  ]
+}
+```
+
+2. 测试插件加载：
+```bash
+# 启动 Claude Code 并验证插件加载
+claude code
+```
+
+3. 验证功能：
+- Hooks 插件：触发对应事件验证
+- Skills 插件：使用技能触发词验证
+
+## 关键架构模式
+
+### 1. 配置迁移模式（CLI 工具）
+- **自动迁移**：检测到 `config.json` 且无 `config.toml` 时自动迁移
+- **手动合并**：`ccode config merge` 合并同名 profile
+- **备份机制**：`config.json.bak-YYYYMMDD-HHMMSS`
+- **失败保护**：任一步失败不删除原文件
+
+### 2. Hooks 注入模式（ccode-notify）
+- 通过 `hooks.json` 注册事件监听
+- 使用 `${CLAUDE_PLUGIN_ROOT}` 动态路径
+- 脚本失败不中断主流程（以 0 退出）
+- 参考 `explanatory-output-style` 的设计思路
+
+### 3. Skills 定义模式（ccode-skills）
+- **SKILL.md**：Claude Code 读取的技能定义
+- **README.md**：用户快速入门
+- **REFERENCE.md**：完整参考文档
+- **YAML Front Matter**：`name` 和 `description` 元数据
+
+### 4. 命名空间隔离（Memory）
+- 格式：`project:<repo>:<category>:<identifier>`
+- 使用 kebab-case
+- 避免跨项目污染
+- 示例：`project:ccode:commit-convention`
 
 ## 迁移指引（摘要）
 
