@@ -10,6 +10,7 @@
   "plugins": [
     {
       "name": "ccode-notify",
+      "version": "1.0.0",
       "description": "为 Claude Code 增加系统桌面通知：当需要用户交互时提醒、任务完成/中断/报错时提示（Notification/Stop hooks，基于 notify-send/libnotify）",
       "source": "./plugins/ccode-notify",
       "category": "tools"
@@ -17,6 +18,7 @@
     {
       "name": "ccode-skills",
       "description": "ccode 的skills集合",
+      "version": "1.0.0",
       "source": "./plugins/ccode-skills",
       "strict": false,
       "skills": [
