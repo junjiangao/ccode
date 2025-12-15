@@ -31,7 +31,7 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 
 **开启会话**（必须设置固定参数）：
 
-#### 默认模型：gpt-5.1-codex
+#### 默认模型：gpt-5.1-codex-max
 适用于大多数复杂技术任务和分析工作：
 
 **完整工具调用示例**：
@@ -39,7 +39,7 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 {
   "name": "mcp__codex-mcp-tool__codex",
   "parameters": {
-    "model": "gpt-5.1-codex",
+    "model": "gpt-5.1-codex-max",
     "sandbox": "danger-full-access",
     "approval-policy": "on-failure",
     "prompt": "<需求描述或任务说明>",
@@ -48,7 +48,7 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 }
 ```
 
-#### 高级模型：gpt-5.1
+#### 高级模型：gpt-5.2
 适用于特别复杂的任务或特殊指定场景：
 
 **完整工具调用示例**：
@@ -56,7 +56,7 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 {
   "name": "mcp__codex-mcp-tool__codex",
   "parameters": {
-    "model": "gpt-5.1",
+    "model": "gpt-5.2",
     "sandbox": "danger-full-access",
     "approval-policy": "on-failure",
     "prompt": "<需求描述或任务说明>",
@@ -71,13 +71,13 @@ description: 调用 Codex 进行深度分析、复杂逻辑设计和代码审查
 
 #### 必选参数
 - `model`: 模型选择，支持以下选项：
-  - **"gpt-5.1-codex"**（默认）- 适用于大多数复杂技术任务、算法设计、架构分析
-  - **"gpt-5.1"** - 适用于特别复杂的任务或用户特殊指定，需要更强的推理能力
+  - **"gpt-5.1-codex-max"**（默认）- 适用于大多数复杂技术任务、算法设计、架构分析
+  - **"gpt-5.2"** - 适用于特别复杂的任务或用户特殊指定，需要更强的推理能力
 - `prompt`: 任务描述，支持中英文
 
 **模型选择指南**：
-- 使用 **gpt-5.1-codex**：>90% 的协作场景（默认推荐）
-- 使用 **gpt-5.1**：遇到高度复杂的多约束优化、超大规模系统设计、或用户明确指定时
+- 使用 **gpt-5.1-codex-max**：>90% 的协作场景（默认推荐）
+- 使用 **gpt-5.2**：遇到高度复杂的多约束优化、超大规模系统设计、或用户明确指定时
 - `sandbox`: 沙盒模式
   - `"read-only"` - 仅读取权限
   - `"workspace-write"` - 可写入工作区

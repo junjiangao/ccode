@@ -244,7 +244,7 @@ alerts:
 {
   "name": "mcp__codex-mcp-tool__codex",
   "parameters": {
-    "model": "gpt-5.1-codex",
+    "model": "gpt-5.1-codex-max",
     "sandbox": "danger-full-access",
     "approval-policy": "on-failure",
     "prompt": "<任务描述>",
@@ -254,7 +254,7 @@ alerts:
 ```
 
 **参数说明**：
-- `model`（必需）：模型选择，推荐 `"gpt-5.1-codex"` 或 `"gpt-5.1"`
+- `model`（必需）：模型选择，推荐 `"gpt-5.1-codex-max"` 或 `"gpt-5.2"`
 - `sandbox`（必需）：沙盒模式
   - `"read-only"` - 仅读取
   - `"workspace-write"` - 可写入工作区
