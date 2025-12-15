@@ -1,8 +1,9 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ccode-plugins",
-  "version": "1.0.0",
-  "description": "ccode 的 Claude Code 插件集合。当前包含 ccode-notify：通过 hooks 以轻量方式为会话添加系统桌面通知能力（零配置、即装即用，思路参考 explanatory-output-style 的 hooks 注入模式）",
+  "metadata": {
+    "description": "ccode 的 Claude Code 插件集合。当前包含 ccode-notify：通过 hooks 以轻量方式为会话添加系统桌面通知能力（零配置、即装即用，思路参考 explanatory-output-style 的 hooks 注入模式）",
+    "version": "1.0.0",
+  },
   "owner": {
     "name": "junjiangao",
     "email": "junjiangao@gmail.com"
@@ -22,8 +23,8 @@
       "source": "./plugins/ccode-skills",
       "strict": false,
       "skills": [
-        "./codex-mcp",
-        "./git-commit"
+        "./skills/codex-mcp",
+        "./skills/git-commit"
       ]
     }
   ]
