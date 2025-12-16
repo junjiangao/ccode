@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **ccode-notify**：桌面通知插件（Notification/Stop hooks）
 - **ccode-skills**：技能集合插件
-  - `codex-mcp`：复杂技术任务协作
+  - `codex-ai`：通过 Codex CLI 进行代码审查、算法设计和架构分析
   - `git-commit`：智能 Git 提交助手
 
 ### ⚠️ 重要说明
@@ -112,11 +112,10 @@ plugins/
 └── ccode-skills/              # 技能集合插件
     ├── .claude-plugin/
     │   └── plugin.json        # 插件元数据
-    ├── codex-mcp/             # Codex MCP 协作技能
+    ├── codex-ai/              # Codex CLI 协作技能
     │   ├── SKILL.md           # 技能定义（Claude Code 读取）
     │   ├── README.md          # 快速入门
-    │   ├── REFERENCE.md       # 完整参考
-    │   └── HANDOFF_CHECKLIST.md
+    │   └── REFERENCE.md       # 完整参考
     │
     └── git-commit/            # Git 提交助手技能
         ├── SKILL.md           # 技能定义
@@ -168,39 +167,31 @@ sudo dnf install libnotify
 
 ### Skills 插件：ccode-skills
 
-#### 技能 1：codex-mcp
+#### 技能 1：codex-ai
 
-**用途**：通过 MCP 工具调用 Codex 处理复杂技术任务
+**用途**：通过 Bash 直接调用 Codex CLI 处理复杂技术任务
 
 **触发场景**：
+- 代码审查（review、code review）
 - 复杂算法设计（>10行核心逻辑）
-- 性能优化（p99 延迟、状态机）
-- 架构评审（10x 扩展）
-- 代码审查（线程安全、内存泄漏）
+- 架构分析与评审（系统扩展、架构重构）
+- 性能优化（瓶颈分析、性能调优）
 
-**MCP 工具调用**：
-```json
-// 开启会话
-{
-  "name": "mcp__codex-mcp-tool__codex",
-  "parameters": {
-    "model": "gpt-5-codex",
-    "sandbox": "danger-full-access",
-    "approval-policy": "on-failure",
-    "prompt": "<任务描述>",
-    "cwd": "<工程路径>"
-  }
-}
+**核心命令**：
+```bash
+# 代码审查
+codex review --uncommitted -m gpt-5.1-codex-max -c model_reasoning_effort=high
 
-// 继续对话
-{
-  "name": "mcp__codex-mcp-tool__codex-reply",
-  "parameters": {
-    "conversationId": "<session_id>",
-    "prompt": "<补充问题>"
-  }
-}
+# 简单任务（代码审查、简单重构）
+codex exec -m gpt-5.1-codex-max -c model_reasoning_effort=high "<任务描述>"
+
+# 复杂任务（算法设计、架构评审、性能优化）
+codex exec -m gpt-5.2 -c model_reasoning_effort=high "<任务描述>"
 ```
+
+**模型选择**：
+- **gpt-5.1-codex-max**：简单任务（代码审查、简单重构、文档生成）
+- **gpt-5.2**：复杂任务（复杂算法、架构评审、性能优化、多约束问题）
 
 #### 技能 2：git-commit
 

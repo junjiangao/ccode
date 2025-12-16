@@ -23,7 +23,7 @@
       "source": "./plugins/ccode-skills",
       "strict": false,
       "skills": [
-        "./skills/codex-mcp",
+        "./skills/codex-ai",
         "./skills/git-commit"
       ]
     }
