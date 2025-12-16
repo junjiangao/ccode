@@ -180,13 +180,13 @@ sudo dnf install libnotify
 **核心命令**：
 ```bash
 # 代码审查
-codex review --uncommitted -m gpt-5.1-codex-max -c model_reasoning_effort=high
+codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
 
 # 简单任务（代码审查、简单重构）
-codex exec -m gpt-5.1-codex-max -c model_reasoning_effort=high "<任务描述>"
+codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="high"' "<任务描述>"
 
 # 复杂任务（算法设计、架构评审、性能优化）
-codex exec -m gpt-5.2 -c model_reasoning_effort=high "<任务描述>"
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "<任务描述>"
 ```
 
 **模型选择**：

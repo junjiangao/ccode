@@ -19,16 +19,16 @@ description: 通过 Codex CLI 进行代码审查、算法设计、架构分析�
 
 ### 代码审查
 ```bash
-codex review --uncommitted -m gpt-5.1-codex-max -c model_reasoning_effort=high
+codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
 ```
 
 ### 算法设计和架构分析
 ```bash
 # 简单任务
-codex exec -m gpt-5.1-codex-max -c model_reasoning_effort=high "<任务描述>"
+codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="high"' "<任务描述>"
 
 # 复杂任务（多约束、系统级设计）
-codex exec -m gpt-5.2 -c model_reasoning_effort=high "<任务描述>"
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "<任务描述>"
 ```
 
 ## 模型选择
@@ -56,7 +56,7 @@ codex exec -m gpt-5.2 -c model_reasoning_effort=high "<任务描述>"
 
 3. **执行审查**：
    ```bash
-   codex review --uncommitted -m gpt-5.1-codex-max -c model_reasoning_effort=high
+   codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
    ```
 
 4. **审查输出并采取行动**
@@ -74,7 +74,7 @@ codex exec -m gpt-5.2 -c model_reasoning_effort=high "<任务描述>"
 
 3. **执行设计**：
    ```bash
-   codex exec -m gpt-5.2 -c model_reasoning_effort=high "设计任务描述"
+   codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "设计任务描述"
    ```
 
 4. **验证建议**：
@@ -89,7 +89,7 @@ codex exec -m gpt-5.2 -c model_reasoning_effort=high "<任务描述>"
 | 参数 | 说明 |
 |------|------|
 | `-m <MODEL>` | 模型选择 |
-| `-c model_reasoning_effort=high` | 推理强度（推荐） |
+| `-c 'model_reasoning_effort="xhigh"'` | 推理强度（推荐） |
 | `-C <DIR>` | 工作目录 |
 | `-o <FILE>` | 输出到文件 |
 | `--uncommitted` | 审查未提交变更 |

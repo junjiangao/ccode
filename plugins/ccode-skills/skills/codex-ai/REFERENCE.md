@@ -51,28 +51,28 @@ codex review [OPTIONS] [CUSTOM_INSTRUCTION]
 | `--base <BRANCH>` | 对比基准分支 | `codex review --base main` |
 | `--commit <SHA>` | 审查特定提交 | `codex review --commit abc123` |
 | `-m <MODEL>` | 指定模型 | `-m gpt-5.1-codex-max` |
-| `-c <KEY=VALUE>` | 配置覆盖 | `-c model_reasoning_effort=high` |
+| `-c <KEY=VALUE>` | 配置覆盖 | `-c 'model_reasoning_effort="xhigh"'` |
 
 #### 使用示例
 
 **审查未提交的变更**
 ```bash
-codex review --uncommitted -m gpt-5.1-codex-max -c model_reasoning_effort=high
+codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
 ```
 
 **审查 PR 分支**
 ```bash
-codex review --base main -m gpt-5.1-codex-max -c model_reasoning_effort=high
+codex review --base main -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
 ```
 
 **审查特定提交**
 ```bash
-codex review --commit a1b2c3d -m gpt-5.1-codex-max -c model_reasoning_effort=high
+codex review --commit a1b2c3d -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
 ```
 
 **自定义审查指令**
 ```bash
-codex review "关注线程安全和内存泄漏问题" -m gpt-5.1-codex-max -c model_reasoning_effort=high
+codex review "关注线程安全和内存泄漏问题" -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
 ```
 
 #### 审查重点
@@ -99,7 +99,7 @@ codex exec [OPTIONS] <TASK_DESCRIPTION>
 | 选项 | 说明 | 示例 |
 |------|------|------|
 | `-m <MODEL>` | 指定模型 | `-m gpt-5.2` |
-| `-c <KEY=VALUE>` | 配置覆盖 | `-c model_reasoning_effort=high` |
+| `-c <KEY=VALUE>` | 配置覆盖 | `-c 'model_reasoning_effort="xhigh"'` |
 | `-C <DIR>` | 工作目录 | `-C /path/to/project` |
 | `--full-auto` | 自动执行模式 | `--full-auto` |
 | `-o <FILE>` | 输出到文件 | `-o result.md` |
@@ -108,12 +108,12 @@ codex exec [OPTIONS] <TASK_DESCRIPTION>
 
 **简单任务**
 ```bash
-codex exec -m gpt-5.1-codex-max -c model_reasoning_effort=high "设计一个 LRU 缓存算法"
+codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"' "设计一个 LRU 缓存算法"
 ```
 
 **复杂任务**
 ```bash
-codex exec -m gpt-5.2 -c model_reasoning_effort=high "设计一个分布式限流系统：
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "设计一个分布式限流系统：
 - 支持 10K req/s
 - 每用户 100 req/min
 - 延迟 <1ms
@@ -122,17 +122,17 @@ codex exec -m gpt-5.2 -c model_reasoning_effort=high "设计一个分布式限�
 
 **指定工作目录**
 ```bash
-codex exec -m gpt-5.2 -c model_reasoning_effort=high -C /path/to/project "分析当前项目的架构瓶颈"
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' -C /path/to/project "分析当前项目的架构瓶颈"
 ```
 
 **自动执行模式**
 ```bash
-codex exec -m gpt-5.2 -c model_reasoning_effort=high --full-auto "重构 auth 模块，提取公共逻辑"
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' --full-auto "重构 auth 模块，提取公共逻辑"
 ```
 
 **输出到文件**
 ```bash
-codex exec -m gpt-5.2 -c model_reasoning_effort=high -o architecture-analysis.md "分析系统架构并提供改进建议"
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' -o architecture-analysis.md "分析系统架构并提供改进建议"
 ```
 
 ## 🤖 模型详解
@@ -291,13 +291,13 @@ codex exec -m gpt-5.2 -c model_reasoning_effort=high -o architecture-analysis.md
 
 ```bash
 # 推荐：所有任务使用 high
-codex exec -m gpt-5.2 -c model_reasoning_effort=high "任务描述"
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "任务描述"
 
 # 时间敏感：简单任务可用 medium
-codex exec -m gpt-5.1-codex-max -c model_reasoning_effort=medium "简单重构"
+codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="medium"' "简单重构"
 
 # 不推荐：low 仅用于极简单场景
-codex exec -m gpt-5.1-codex-max -c model_reasoning_effort=low "生成简单注释"
+codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="low"' "生成简单注释"
 ```
 
 ### 其他配置参数
@@ -336,21 +336,21 @@ codex exec --full-auto -m gpt-5.2 "重构代码"
 ```bash
 codex review "重点检查 SQL 注入、XSS 和敏感信息泄露" \
   -m gpt-5.1-codex-max \
-  -c model_reasoning_effort=high
+  -c 'model_reasoning_effort="xhigh"'
 ```
 
 **示例 2：关注性能**
 ```bash
 codex review "分析性能瓶颈，关注算法复杂度和不必要的计算" \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high
+  -c 'model_reasoning_effort="xhigh"'
 ```
 
 **示例 3：关注并发安全**
 ```bash
 codex review "检查线程安全、竞态条件和死锁风险" \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high
+  -c 'model_reasoning_effort="xhigh"'
 ```
 
 ### 输出到文件
@@ -361,7 +361,7 @@ codex review "检查线程安全、竞态条件和死锁风险" \
 ```bash
 codex exec \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high \
+  -c 'model_reasoning_effort="xhigh"' \
   -o architecture-analysis.md \
   "分析当前微服务架构，提供扩展性改进建议"
 ```
@@ -370,7 +370,7 @@ codex exec \
 ```bash
 codex exec \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high \
+  -c 'model_reasoning_effort="xhigh"' \
   -o performance-optimization.md \
   "分析系统性能瓶颈，提供优化方案"
 ```
@@ -387,7 +387,7 @@ codex exec \
 codex exec \
   --full-auto \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high \
+  -c 'model_reasoning_effort="xhigh"' \
   "重构 auth 模块，提取公共逻辑到 utils"
 ```
 
@@ -400,7 +400,7 @@ codex exec \
 codex exec \
   -C /path/to/project-a \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high \
+  -c 'model_reasoning_effort="xhigh"' \
   "分析项目架构"
 ```
 
@@ -419,7 +419,7 @@ codex exec -C /path/to/project-b -m gpt-5.2 "分析架构" > project-b.md
 ```bash
 codex exec \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high \
+  -c 'model_reasoning_effort="xhigh"' \
   "设计一个分布式任务调度系统：
 
 要求：
@@ -445,7 +445,7 @@ codex exec \
 ```bash
 codex exec \
   -m gpt-5.2 \
-  -c model_reasoning_effort=high \
+  -c 'model_reasoning_effort="xhigh"' \
   "优化 API 性能：
 
 当前状态：
@@ -600,13 +600,13 @@ codex ping
 **推理强度调优**：
 ```bash
 # 默认推荐（质量优先）
--c model_reasoning_effort=high
+-c 'model_reasoning_effort="xhigh"'
 
 # 时间敏感（平衡）
--c model_reasoning_effort=medium
+-c 'model_reasoning_effort="medium"'
 
 # 快速原型（速度优先，不推荐）
--c model_reasoning_effort=low
+-c 'model_reasoning_effort="low"'
 ```
 
 **任务拆分策略**：

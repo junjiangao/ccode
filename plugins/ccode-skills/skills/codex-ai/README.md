@@ -37,7 +37,7 @@
 
 **执行命令**：
 ```bash
-codex review --uncommitted -m gpt-5.1-codex-max -c model_reasoning_effort=high
+codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
 ```
 
 **输出示例**：
@@ -72,7 +72,7 @@ codex review --uncommitted -m gpt-5.1-codex-max -c model_reasoning_effort=high
 
 **执行命令**：
 ```bash
-codex exec -m gpt-5.1-codex-max -c model_reasoning_effort=high "设计一个 LRU 缓存，容量 1000 项，支持并发访问"
+codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"' "设计一个 LRU 缓存，容量 1000 项，支持并发访问"
 ```
 
 **输出示例**：
@@ -110,7 +110,7 @@ LRU 缓存设计
 
 **执行命令**：
 ```bash
-codex exec -m gpt-5.2 -c model_reasoning_effort=high "设计一个并发限流算法：
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "设计一个并发限流算法：
 - 处理 10K requests/sec
 - 每用户限制 100 req/min
 - 延迟 <1ms"
@@ -154,7 +154,7 @@ codex exec -m gpt-5.2 -c model_reasoning_effort=high "设计一个并发限流�
 
 **执行命令**：
 ```bash
-codex exec -m gpt-5.2 -c model_reasoning_effort=high "分析当前微服务架构，从 1K 扩展到 10K req/sec：
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "分析当前微服务架构，从 1K 扩展到 10K req/sec：
 - 当前：API Gateway → 5个服务 → PostgreSQL + Redis
 - 挑战：数据库 p99 瓶颈、服务紧耦合
 - 建议改进方案"
@@ -219,7 +219,7 @@ codex exec -m gpt-5.2 -c model_reasoning_effort=high "分析当前微服务架�
 
 **执行命令**：
 ```bash
-codex exec -m gpt-5.2 -c model_reasoning_effort=high "优化以下函数性能：
+codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "优化以下函数性能：
 - 当前延迟：p99 = 500ms
 - 目标：p99 < 100ms
 - 分析热点并提供优化方案
