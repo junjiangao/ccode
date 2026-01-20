@@ -30,8 +30,8 @@
 | `model` | string | 否 | 模型选择 | `gpt-5.2-codex`, `gpt-5.2` | - |
 | `config` | object | 否 | 配置覆盖 | - | - |
 | `config.model_reasoning_effort` | string | 否 | 推理强度 | `xhigh`, `high`, `medium` | `xhigh` |
-| `approval-policy` | string | 否 | 审批策略 | `untrusted`, `on-failure`, `on-request`, `never` | `untrusted` |
-| `sandbox` | string | 否 | 沙箱模式 | `read-only`, `workspace-write`, `danger-full-access` | `read-only` |
+| `approval-policy` | string | 否 | 审批策略 | `untrusted`, `on-failure`, `on-request`, `never` | `never` |
+| `sandbox` | string | 否 | 沙箱模式 | `read-only`, `workspace-write`, `danger-full-access` | `workspace-write` |
 | `cwd` | string | 否 | 工作目录 | 文件路径 | 当前目录 |
 
 #### 调用示例
@@ -47,8 +47,8 @@
     "config": {
       "model_reasoning_effort": "xhigh"
     },
-    "approval-policy": "on-failure",
-    "sandbox": "read-only"
+    "approval-policy": "never",
+    "sandbox": "workspace-write"
   }
 }
 ```
@@ -82,7 +82,7 @@
     "config": {
       "model_reasoning_effort": "xhigh"
     },
-    "approval-policy": "on-request",
+    "approval-policy": "never",
     "sandbox": "workspace-write"
   }
 }
@@ -99,7 +99,7 @@
     "config": {
       "model_reasoning_effort": "xhigh"
     },
-    "approval-policy": "on-request",
+    "approval-policy": "never",
     "sandbox": "workspace-write"
   }
 }
@@ -116,8 +116,8 @@
     "config": {
       "model_reasoning_effort": "xhigh"
     },
-    "approval-policy": "on-request",
-    "sandbox": "read-only"
+    "approval-policy": "never",
+    "sandbox": "workspace-write"
   }
 }
 ```
@@ -133,7 +133,7 @@
     "config": {
       "model_reasoning_effort": "xhigh"
     },
-    "approval-policy": "on-request",
+    "approval-policy": "never",
     "sandbox": "workspace-write"
   }
 }
@@ -266,8 +266,8 @@
     "config": {
       "model_reasoning_effort": "xhigh"
     },
-    "approval-policy": "on-request",
-    "sandbox": "read-only"
+    "approval-policy": "never",
+    "sandbox": "workspace-write"
   }
 }
 ```
@@ -337,7 +337,7 @@
     "config": {
       "model_reasoning_effort": "xhigh"
     },
-    "approval-policy": "on-request",
+    "approval-policy": "never",
     "sandbox": "workspace-write"
   }
 }
