@@ -31,7 +31,7 @@ allowed-tools:
 1. **识别任务类型**: 代码审查/算法设计/架构分析/性能优化
 2. **选择模型**: 简单任务 → gpt-5.2-codex, 复杂任务 → gpt-5.2
 3. **准备上下文**: 收集 git diff、代码片段、约束条件
-4. **调用 Codex**: 使用 `mcp__plugin_codex-mcp-tool_codex-mcp-toolcodex`
+4. **调用 Codex**: 使用 `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex`
 5. **格式化输出**: 展示分析结果和下一步行动
 
 **输出格式**:
@@ -49,11 +49,11 @@ allowed-tools:
 
 ## MCP 工具调用
 
-使用 `mcp__plugin_codex-mcp-tool_codex-mcp-toolcodex` 发起新会话:
+使用 `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex` 发起新会话:
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-toolcodex",
+  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "<任务描述>",
     "model": "gpt-5.2-codex",
@@ -62,7 +62,7 @@ allowed-tools:
 }
 ```
 
-使用 `mcp__plugin_codex-mcp-tool_codex-mcp-toolcodex-reply` 继续会话。
+使用 `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply` 继续会话。
 
 **完整参数说明和示例**: 查看 [REFERENCE.md#MCP工具完整参考](REFERENCE.md#mcp-工具完整参考)
 
