@@ -1,101 +1,88 @@
 ---
 name: codex-ai
-description: 通过 Codex CLI 进行代码审查、算法设计、架构分析和性能优化。适用于复杂技术任务、系统级设计、性能瓶颈分析。触发词：代码审查、review、算法设计、架构分析、性能优化。
+description: 通过 Codex MCP 工具进行代码审查、算法设计、架构分析和性能优化。适用于复杂技术任务（>10行核心逻辑）、系统级设计、多约束权衡、性能瓶颈分析。触发词：review、code review、代码审查、算法设计、复杂算法、架构分析、架构评审、系统设计、性能优化、瓶颈分析、性能调优。
+allowed-tools:
+  - mcp__codex-mcp-tool__codex
+  - mcp__codex-mcp-tool__codex-reply
+  - Bash
 ---
 
 # Codex-AI 协作技能
 
-通过 Bash 直接调用 Codex CLI，处理复杂技术任务。
+通过 MCP 工具调用 Codex CLI,处理复杂技术任务。
 
-## 何时使用
+## 使用场景
 
-触发此技能当用户提到：
-- 代码审查、review、code review
-- 算法设计、复杂逻辑
-- 架构分析、架构评审
-- 性能优化、瓶颈分析
+触发此技能当用户提到:
+- **代码审查**: review、code review、审查代码
+- **算法设计**: 复杂算法（>10行核心逻辑）
+- **架构分析**: 架构评审、系统设计、扩展性分析
+- **性能优化**: 瓶颈分析、性能调优
 
-## 快速开始
+## 何时不使用
 
-### 代码审查
-```bash
-codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
-```
-
-### 算法设计和架构分析
-```bash
-# 简单任务
-codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="high"' "<任务描述>"
-
-# 复杂任务（多约束、系统级设计）
-codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "<任务描述>"
-```
-
-## 模型选择
-
-**简单任务** → `gpt-5.1-codex-max`：代码审查、简单重构、文档生成
-
-**复杂任务** → `gpt-5.2`：复杂算法、架构评审、性能优化、多约束问题
-
-**判断标准**：
-- 单一目标、局部修改 → 简单
-- 多约束、系统级设计 → 复杂
+- 简单任务（<10行代码、基本语法）
+- 文档查询（使用 Context7）
+- 简单调试（日志分析）
+- 代码生成（直接生成即可）
 
 ## 工作流程
 
-### 代码审查工作流
+1. **识别任务类型**: 代码审查/算法设计/架构分析/性能优化
+2. **选择模型**: 简单任务 → gpt-5.2-codex, 复杂任务 → gpt-5.2
+3. **准备上下文**: 收集 git diff、代码片段、约束条件
+4. **调用 Codex**: 使用 `mcp__codex-mcp-tool__codex`
+5. **格式化输出**: 展示分析结果和下一步行动
 
-1. **确定审查范围**：
-   - 未提交变更：`--uncommitted`
-   - PR 分支：`--base main`
-   - 特定提交：`--commit <SHA>`
+**输出格式**:
+```
+📊 分析结果
+- 任务类型: <类型>
+- 使用模型: <模型>
 
-2. **选择模型**：
-   - 常规审查 → `gpt-5.1-codex-max`
-   - 深度分析（安全、性能）→ `gpt-5.2`
+📝 Codex 建议
+<分析结果>
 
-3. **执行审查**：
-   ```bash
-   codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
-   ```
+💡 下一步行动
+<实施建议>
+```
 
-4. **审查输出并采取行动**
+## MCP 工具调用
 
-### 算法设计工作流
+使用 `mcp__codex-mcp-tool__codex` 发起新会话:
 
-1. **明确需求**：
-   - 列出所有约束条件
-   - 定义性能目标
-   - 说明边界情况
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "<任务描述>",
+    "model": "gpt-5.2-codex",
+    "config": {"model_reasoning_effort": "xhigh"}
+  }
+}
+```
 
-2. **选择模型**：
-   - 单一目标 → `gpt-5.1-codex-max`
-   - 多约束 → `gpt-5.2`
+使用 `mcp__codex-mcp-tool__codex-reply` 继续会话。
 
-3. **执行设计**：
-   ```bash
-   codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "设计任务描述"
-   ```
+**完整参数说明和示例**: 查看 [REFERENCE.md#MCP工具完整参考](REFERENCE.md#mcp-工具完整参考)
 
-4. **验证建议**：
-   - 理解设计原理
-   - 评估可行性
-   - 测试验证
+## 模型选择
 
-5. **逐步实施**
+- **gpt-5.2-codex**: 简单任务（代码审查、简单重构、单一目标算法）
+- **gpt-5.2**: 复杂任务（复杂算法、架构评审、性能优化、多约束权衡）
 
-## 常用参数
+**详细决策标准**: 查看 [REFERENCE.md#模型选择详解](REFERENCE.md#模型选择详解)
 
-| 参数 | 说明 |
-|------|------|
-| `-m <MODEL>` | 模型选择 |
-| `-c 'model_reasoning_effort="xhigh"'` | 推理强度（推荐） |
-| `-C <DIR>` | 工作目录 |
-| `-o <FILE>` | 输出到文件 |
-| `--uncommitted` | 审查未提交变更 |
-| `--base <BRANCH>` | 对比基准分支 |
+## 错误处理
+
+常见问题：
+- **工具调用失败**: 检查 Codex CLI 安装和配置
+- **输出不符合预期**: 使用 `AskUserQuestion` 补充信息
+- **模型选择不当**: 重新评估任务复杂度
+
+**完整故障排查指南**: 查看 [REFERENCE.md#错误处理完整指南](REFERENCE.md#错误处理完整指南)
 
 ## 详细文档
 
-- **使用场景和示例**：查看 [README.md](README.md)
-- **完整命令参考**：查看 [REFERENCE.md](REFERENCE.md)
+- **使用场景和示例**: 查看 [README.md](README.md)
+- **完整命令参考**: 查看 [REFERENCE.md](REFERENCE.md)

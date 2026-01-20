@@ -26,6 +26,13 @@
         "./skills/codex-ai",
         "./skills/git-commit"
       ]
+    },
+    {
+      "name": "codex-mcp-tool",
+      "version": "1.0.0",
+      "description": "Codex MCP 工具集成，通过 Model Context Protocol 提供代码审查、算法设计和架构分析能力",
+      "source": "./external_plugins/codex-mcp-tool",
+      "category": "tools"
     }
   ]
 }

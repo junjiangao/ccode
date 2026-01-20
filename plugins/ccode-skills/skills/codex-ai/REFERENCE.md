@@ -1,651 +1,690 @@
-# Codex-AI 完整参考
+# Codex-AI 完整技术参考
 
-本文档提供 Codex CLI 的完整命令参考、模型详解、配置选项和高级用法。
+本文档提供 MCP 工具调用的完整参数参考、详细示例和故障排查指南。
 
 ## 📑 目录
 
-- [命令参考](#命令参考)
-  - [codex review](#codex-review)
-  - [codex exec](#codex-exec)
-- [模型详解](#模型详解)
-  - [gpt-5.1-codex-max](#gpt-51-codex-max)
-  - [gpt-5.2](#gpt-52)
-  - [模型选择决策树](#模型选择决策树)
-- [配置选项](#配置选项)
-  - [model_reasoning_effort](#model_reasoning_effort)
-  - [其他配置参数](#其他配置参数)
-- [高级用法](#高级用法)
-  - [自定义审查指令](#自定义审查指令)
-  - [输出到文件](#输出到文件)
-  - [自动执行模式](#自动执行模式)
-  - [指定工作目录](#指定工作目录)
-  - [复杂场景示例](#复杂场景示例)
+- [MCP 工具完整参考](#mcp-工具完整参考)
+- [完整工作流程示例](#完整工作流程示例)
+- [详细场景示例](#详细场景示例)
+- [模型选择详解](#模型选择详解)
+- [配置选项详解](#配置选项详解)
+- [错误处理完整指南](#错误处理完整指南)
+- [最佳实践](#最佳实践)
+- [常见问题 FAQ](#常见问题-faq)
 - [故障排查](#故障排查)
-  - [常见问题](#常见问题)
-  - [错误处理](#错误处理)
-  - [调试技巧](#调试技巧)
-- [性能优化](#性能优化)
-  - [模型选择策略](#模型选择策略)
-  - [参数调优建议](#参数调优建议)
-- [参考资源](#参考资源)
 
 ---
 
-## 📋 命令参考
+## MCP 工具完整参考
 
-### codex review
+### 工具 1: mcp__codex-mcp-tool__codex
 
-代码审查命令，用于分析代码变更并提供改进建议。
+发起新的 Codex 会话。
 
-#### 基本语法
+#### 参数详解
 
-```bash
-codex review [OPTIONS] [CUSTOM_INSTRUCTION]
+| 参数 | 类型 | 必需 | 说明 | 可选值 | 默认值 |
+|------|------|------|------|--------|--------|
+| `prompt` | string | 是 | 任务描述 | - | - |
+| `model` | string | 否 | 模型选择 | `gpt-5.2-codex`, `gpt-5.2` | - |
+| `config` | object | 否 | 配置覆盖 | - | - |
+| `config.model_reasoning_effort` | string | 否 | 推理强度 | `xhigh`, `high`, `medium` | `xhigh` |
+| `approval-policy` | string | 否 | 审批策略 | `untrusted`, `on-failure`, `on-request`, `never` | `untrusted` |
+| `sandbox` | string | 否 | 沙箱模式 | `read-only`, `workspace-write`, `danger-full-access` | `read-only` |
+| `cwd` | string | 否 | 工作目录 | 文件路径 | 当前目录 |
+
+#### 调用示例
+
+##### 场景 1: 代码审查
+
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "审查以下代码变更,关注潜在问题、性能和安全性:\n\n[git diff 输出]",
+    "model": "gpt-5.2-codex",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    },
+    "approval-policy": "on-failure",
+    "sandbox": "read-only"
+  }
+}
 ```
 
-#### 常用选项
-
-| 选项 | 说明 | 示例 |
-|------|------|------|
-| `--uncommitted` | 审查未提交的变更 | `codex review --uncommitted` |
-| `--base <BRANCH>` | 对比基准分支 | `codex review --base main` |
-| `--commit <SHA>` | 审查特定提交 | `codex review --commit abc123` |
-| `-m <MODEL>` | 指定模型 | `-m gpt-5.1-codex-max` |
-| `-c <KEY=VALUE>` | 配置覆盖 | `-c 'model_reasoning_effort="xhigh"'` |
-
-#### 使用示例
-
-**审查未提交的变更**
-```bash
-codex review --uncommitted -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
+**返回示例**:
+```json
+{
+  "threadId": "thread-abc123",
+  "structuredContent": {
+    "result": "代码审查报告...",
+    "issues": [
+      {
+        "file": "src/main.rs",
+        "line": 45,
+        "issue": "潜在空指针异常",
+        "suggestion": "添加 null 检查"
+      }
+    ]
+  }
+}
 ```
 
-**审查 PR 分支**
-```bash
-codex review --base main -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
+##### 场景 2: 简单算法设计
+
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "设计一个 LRU 缓存,容量 1000 项,支持并发访问",
+    "model": "gpt-5.2-codex",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    },
+    "approval-policy": "on-request",
+    "sandbox": "workspace-write"
+  }
+}
 ```
 
-**审查特定提交**
-```bash
-codex review --commit a1b2c3d -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
+##### 场景 3: 复杂算法设计
+
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "设计一个分布式限流算法:\n- 处理 10K req/s\n- 每用户 100 req/min\n- 延迟 <1ms\n\n要求:\n- 完整数据结构设计\n- 并发控制策略\n- 性能分析",
+    "model": "gpt-5.2",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    },
+    "approval-policy": "on-request",
+    "sandbox": "workspace-write"
+  }
+}
 ```
 
-**自定义审查指令**
-```bash
-codex review "关注线程安全和内存泄漏问题" -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"'
+##### 场景 4: 架构分析
+
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "分析当前微服务架构,从 1K 扩展到 10K req/sec:\n- 当前: API Gateway → 5个服务 → PostgreSQL + Redis\n- 挑战: 数据库 p99 瓶颈、服务紧耦合\n- 建议改进方案",
+    "model": "gpt-5.2",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    },
+    "approval-policy": "on-request",
+    "sandbox": "read-only"
+  }
+}
 ```
 
-#### 审查重点
+##### 场景 5: 性能优化
 
-Codex 会自动检查以下方面：
-- **代码质量**：可读性、可维护性、代码风格
-- **潜在问题**：空指针、资源泄漏、并发问题
-- **性能**：算法复杂度、不必要的计算
-- **安全**：SQL 注入、XSS、敏感信息泄露
-- **最佳实践**：设计模式、错误处理、测试覆盖
-
-### codex exec
-
-执行任意技术任务的通用命令。
-
-#### 基本语法
-
-```bash
-codex exec [OPTIONS] <TASK_DESCRIPTION>
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "优化以下函数性能:\n- 当前延迟: p99 = 500ms\n- 目标: p99 < 100ms\n- 分析热点并提供优化方案\n\n[代码]",
+    "model": "gpt-5.2",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    },
+    "approval-policy": "on-request",
+    "sandbox": "workspace-write"
+  }
+}
 ```
 
-#### 常用选项
+### 工具 2: mcp__codex-mcp-tool__codex-reply
 
-| 选项 | 说明 | 示例 |
-|------|------|------|
-| `-m <MODEL>` | 指定模型 | `-m gpt-5.2` |
-| `-c <KEY=VALUE>` | 配置覆盖 | `-c 'model_reasoning_effort="xhigh"'` |
-| `-C <DIR>` | 工作目录 | `-C /path/to/project` |
-| `--full-auto` | 自动执行模式 | `--full-auto` |
-| `-o <FILE>` | 输出到文件 | `-o result.md` |
+继续现有 Codex 会话。
 
-#### 使用示例
+#### 参数详解
 
-**简单任务**
-```bash
-codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="xhigh"' "设计一个 LRU 缓存算法"
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `threadId` | string | 是 | 从上次调用返回的线程 ID |
+| `prompt` | string | 是 | 后续问题或指令 |
+
+#### 调用示例
+
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "threadId": "thread-abc123",
+    "prompt": "请详细解释第二个优化方案的实现细节"
+  }
+}
 ```
 
-**复杂任务**
-```bash
-codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "设计一个分布式限流系统：
-- 支持 10K req/s
-- 每用户 100 req/min
-- 延迟 <1ms
-- 支持水平扩展"
+---
+
+## 完整工作流程示例
+
+### 工作流 1: 代码审查完整流程
+
+**步骤 1**: 获取 git diff (Bash 工具)
+```json
+{
+  "name": "Bash",
+  "parameters": {
+    "command": "git diff --cached",
+    "description": "获取暂存区代码变更"
+  }
+}
 ```
 
-**指定工作目录**
-```bash
-codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' -C /path/to/project "分析当前项目的架构瓶颈"
+**步骤 2**: 调用 Codex 审查 (MCP 工具)
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "审查以下代码变更:\n\n[步骤1的输出]",
+    "model": "gpt-5.2-codex",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    }
+  }
+}
 ```
 
-**自动执行模式**
-```bash
-codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' --full-auto "重构 auth 模块，提取公共逻辑"
+**步骤 3**: 格式化输出给用户
+
+**步骤 4** (可选): 追问细节
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "threadId": "[步骤2返回的threadId]",
+    "prompt": "请解释第一个问题的修复方案"
+  }
+}
 ```
 
-**输出到文件**
-```bash
-codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' -o architecture-analysis.md "分析系统架构并提供改进建议"
+### 工作流 2: 算法设计完整流程
+
+**步骤 1**: 调用 Codex 设计算法
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "设计分布式限流算法:\n- 10K req/s\n- 100 req/min per user\n- <1ms 延迟",
+    "model": "gpt-5.2"
+  }
+}
 ```
 
-## 🤖 模型详解
+**步骤 2**: 请求详细实现
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "threadId": "[步骤1的threadId]",
+    "prompt": "提供 Rust 完整实现"
+  }
+}
+```
 
-### gpt-5.1-codex-max
+**步骤 3**: 性能验证讨论
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "threadId": "[同一threadId]",
+    "prompt": "如何验证性能满足要求?"
+  }
+}
+```
 
-**定位**：快速、高效的日常开发助手
+---
 
-#### 特点和性能
+## 详细场景示例
 
-- **响应速度**：快速（通常 <10 秒）
-- **推理能力**：适合单一目标任务
-- **代码质量**：高质量的代码生成
-- **成本**：相对较低
+### 场景 3: 架构分析
 
-#### 适用场景
+**示例: 系统扩展设计**
 
-1. **代码审查**
-   - 提交前的代码自查
-   - PR 审查前的预检
-   - 代码质量检查
+**输入**:
+```
+分析当前微服务架构,从 1K 扩展到 10K req/sec:
+- 当前: API Gateway → 5个服务 → PostgreSQL + Redis
+- 挑战: 数据库 p99 瓶颈、服务紧耦合
+```
 
-2. **简单重构**
-   - 提取函数或类
-   - 重命名变量
-   - 简化逻辑
+**MCP 工具调用**:
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "分析当前微服务架构,从 1K 扩展到 10K req/sec:\n- 当前: API Gateway → 5个服务 → PostgreSQL + Redis\n- 挑战: 数据库 p99 瓶颈、服务紧耦合\n- 建议改进方案",
+    "model": "gpt-5.2",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    },
+    "approval-policy": "on-request",
+    "sandbox": "read-only"
+  }
+}
+```
 
-3. **文档生成**
-   - API 文档
-   - 代码注释
-   - README 文件
+**输出示例**:
+```
+架构扩展分析
+===========
 
-4. **常规 bug 修复**
-   - 空指针错误
-   - 逻辑错误
-   - 边界条件处理
+## 当前瓶颈分析
+1. 数据库 p99 瓶颈:
+   - 原因: 单点写入、N+1 查询
+   - 影响: 限制整体吞吐量
 
-5. **单一目标算法**
-   - LRU 缓存
-   - 二分查找
-   - 排序算法
+2. 服务紧耦合:
+   - 原因: 同步调用链过长
+   - 影响: 级联故障风险
 
-#### 性能指标
+## 改进方案
 
-- **适合任务复杂度**：低到中等
-- **代码行数**：<100 行核心逻辑
-- **约束条件**：1-2 个主要约束
-- **推理深度**：1-2 层
+### 短期优化 (1-2 周)
+1. 数据库优化:
+   - 添加读副本 (读写分离)
+   - 优化慢查询 (添加索引)
+   - 引入连接池
 
-#### 成本考虑
+2. 缓存策略:
+   - 热点数据缓存 (Redis)
+   - 查询结果缓存
 
-- 适合高频使用
-- 日常开发任务的首选
-- 成本效益比高
+### 中期重构 (1-2 月)
+1. 服务解耦:
+   - 引入消息队列 (Kafka/RabbitMQ)
+   - 异步处理非关键路径
+
+2. 数据库分片:
+   - 按用户 ID 分片
+   - 使用 Citus 或自建分片
+
+### 预期效果
+- 吞吐量: 1K → 10K req/s
+- p99 延迟: 500ms → <100ms
+- 可用性: 99.9% → 99.99%
+```
+
+### 场景 4: 性能优化
+
+**示例: 函数性能优化**
+
+**输入**:
+```
+优化以下函数性能:
+- 当前延迟: p99 = 500ms
+- 目标: p99 < 100ms
+- 分析热点并提供优化方案
+
+[代码]
+```
+
+**MCP 工具调用**:
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "优化以下函数性能:\n- 当前延迟: p99 = 500ms\n- 目标: p99 < 100ms\n- 分析热点并提供优化方案\n\n[代码]",
+    "model": "gpt-5.2",
+    "config": {
+      "model_reasoning_effort": "xhigh"
+    },
+    "approval-policy": "on-request",
+    "sandbox": "workspace-write"
+  }
+}
+```
+
+**输出示例**:
+```
+性能优化分析
+===========
+
+## 热点分析
+1. 数据库查询 (占 80% 时间)
+   - N+1 查询问题
+   - 缺少索引
+
+2. JSON 序列化 (占 15% 时间)
+   - 大对象序列化开销
+
+## 优化方案
+
+### 优化 1: 批量查询
+- 当前: 循环中单次查询
+- 优化: 使用 IN 查询批量获取
+- 预期: 减少 70% 数据库时间
+
+### 优化 2: 添加索引
+- 字段: user_id, created_at
+- 预期: 查询时间从 100ms → 5ms
+
+### 优化 3: 优化序列化
+- 使用 serde 的 skip_serializing_if
+- 减少不必要的字段序列化
+- 预期: 减少 50% 序列化时间
+
+## 预期效果
+- p99 延迟: 500ms → 80ms
+- 吞吐量: 提升 5x
+```
+
+---
+
+## 模型选择详解
+
+### gpt-5.2-codex
+
+**定位**: 快速高效的日常开发助手
+
+**性能特点**:
+- 响应速度: 快速 (<10秒)
+- 推理深度: 1-2 层
+- 代码质量: 高质量
+- 成本: 较低
+
+**适用场景**:
+1. 代码审查 (提交前自查、PR 预检)
+2. 简单重构 (提取函数、重命名变量)
+3. 文档生成 (API 文档、代码注释)
+4. 常规 bug 修复 (空指针、逻辑错误)
+5. 单一目标算法 (LRU 缓存、二分查找)
+
+**不适用场景**:
+- 多约束权衡
+- 系统级架构设计
+- 复杂性能优化
 
 ### gpt-5.2
 
-**定位**：深度推理的复杂问题解决专家
+**定位**: 深度推理的复杂问题解决专家
 
-#### 特点和性能
+**性能特点**:
+- 响应速度: 较慢 (20-60秒)
+- 推理深度: 3+ 层
+- 问题解决: 处理复杂约束
+- 成本: 较高
 
-- **响应速度**：较慢（通常 20-60 秒）
-- **推理能力**：强大的深度推理
-- **问题解决**：处理复杂约束和权衡
-- **成本**：相对较高
+**适用场景**:
+1. 复杂算法设计 (分布式算法、并发控制)
+2. 架构评审 (扩展性分析、重构建议)
+3. 性能优化 (瓶颈分析、系统级优化)
+4. 多约束问题 (多目标权衡)
+5. 深度推理 (根因分析、方案对比)
 
-#### 适用场景
-
-1. **复杂算法设计**
-   - 分布式系统算法
-   - 并发控制算法
-   - 多约束优化问题
-
-2. **架构评审**
-   - 系统扩展性分析
-   - 架构重构建议
-   - 技术选型评估
-
-3. **性能优化**
-   - 性能瓶颈分析
-   - 深度性能调优
-   - 系统级优化
-
-4. **多约束问题**
-   - 需要权衡多个目标
-   - 复杂的业务逻辑
-   - 系统级设计决策
-
-5. **深度推理任务**
-   - 根因分析
-   - 方案对比评估
-   - 风险评估
-
-#### 性能指标
-
-- **适合任务复杂度**：中等到高
-- **代码行数**：>100 行核心逻辑
-- **约束条件**：3+ 个约束需要权衡
-- **推理深度**：3+ 层深度分析
-
-#### 成本考虑
-
-- 适合关键决策
-- 复杂问题的首选
-- 需要权衡成本和质量
+**不适用场景**:
+- 简单任务 (浪费时间和成本)
 
 ### 模型选择决策树
 
 ```
 任务描述
     │
-    ├─ 单一明确目标？
-    │   ├─ 是 → gpt-5.1-codex-max
+    ├─ 单一明确目标?
+    │   ├─ 是 → gpt-5.2-codex
     │   └─ 否 → 继续判断
     │
-    ├─ 多个约束条件需要权衡？
+    ├─ 多个约束需要权衡?
     │   ├─ 是 → gpt-5.2
     │   └─ 否 → 继续判断
     │
-    ├─ 涉及系统级设计？
+    ├─ 涉及系统级设计?
     │   ├─ 是 → gpt-5.2
     │   └─ 否 → 继续判断
     │
-    ├─ 需要深度推理分析？
+    ├─ 需要深度推理?
     │   ├─ 是 → gpt-5.2
-    │   └─ 否 → gpt-5.1-codex-max
+    │   └─ 否 → gpt-5.2-codex
 ```
 
-## ⚙️ 配置选项
+---
+
+## 配置选项详解
 
 ### model_reasoning_effort
 
-控制模型的推理强度，影响输出质量和响应时间。
+控制模型推理强度,影响输出质量和响应时间。
 
-#### 可选值
+**可选值**:
 
-**high（推荐）**
-- **推理强度**：最高
-- **输出质量**：最佳
-- **响应时间**：较慢
-- **适用场景**：所有任务（默认推荐）
+- **xhigh** (推荐): 最高推理强度,最佳质量,响应较慢
+- **high**: 高推理强度,良好质量,中等速度
+- **medium**: 中等推理强度,基本质量,较快速度
 
-**medium**
-- **推理强度**：中等
-- **输出质量**：良好
-- **响应时间**：中等
-- **适用场景**：时间敏感的简单任务
+**使用建议**:
+- 默认使用 `xhigh` 确保质量
+- 仅在时间极度敏感的简单任务使用 `medium`
 
-**low**
-- **推理强度**：最低
-- **输出质量**：基本
-- **响应时间**：最快
-- **适用场景**：极简单的任务或快速原型
+### approval-policy
 
-#### 使用建议
+控制 shell 命令执行的审批策略。
 
-```bash
-# 推荐：所有任务使用 high
-codex exec -m gpt-5.2 -c 'model_reasoning_effort="xhigh"' "任务描述"
+**可选值**:
 
-# 时间敏感：简单任务可用 medium
-codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="medium"' "简单重构"
+- **untrusted** (默认): 不受信任的命令需要审批
+- **on-failure**: 失败时需要审批
+- **on-request**: 根据请求审批
+- **never**: 从不需要审批 (谨慎使用)
 
-# 不推荐：low 仅用于极简单场景
-codex exec -m gpt-5.1-codex-max -c 'model_reasoning_effort="low"' "生成简单注释"
+### sandbox
+
+控制执行环境的访问权限。
+
+**可选值**:
+
+- **read-only**: 只读访问 (代码审查推荐)
+- **workspace-write**: 可写工作区 (算法设计、重构推荐)
+- **danger-full-access**: 完全访问 (谨慎使用)
+
+---
+
+## 错误处理完整指南
+
+### 错误场景 1: 工具调用失败
+
+**症状**: MCP 工具返回错误或超时
+
+**可能原因**:
+- Codex CLI 未正确安装
+- 配置错误
+- 网络问题
+
+**诊断步骤**:
+1. 检查 Codex CLI 版本
+2. 验证配置
+3. 测试网络连接
+
+**解决方案**:
+1. 检查安装: `codex --version`
+2. 验证配置: `codex config show`
+3. 简化任务描述
+4. 重试请求
+
+### 错误场景 2: 任务描述不清晰
+
+**症状**: Codex 输出不符合预期或过于泛泛
+
+**解决方案**:
+1. 使用 `AskUserQuestion` 询问补充信息:
+   - 具体性能指标
+   - 约束条件
+   - 边界情况
+2. 重新构建更详细的 prompt
+3. 再次调用 MCP 工具
+
+### 错误场景 3: 模型选择不当
+
+**症状**: 简单任务使用 gpt-5.2 导致响应慢,或复杂任务使用 gpt-5.2-codex 质量不足
+
+**解决方案**:
+1. 重新评估任务复杂度
+2. 使用 `codex-reply` 继续会话并切换模型
+3. 向用户说明模型选择原因
+
+---
+
+## 最佳实践
+
+### Prompt 编写最佳实践
+
+1. **明确目标**: 清晰描述期望的输出
+2. **提供约束**: 性能指标、资源限制、技术栈
+3. **结构化输入**: 使用标题、列表组织信息
+4. **提供示例**: 给出期望的输出格式示例
+5. **边界情况**: 说明特殊情况和边界条件
+
+**示例对比**:
+
+❌ 不好的 prompt:
+```
+"优化这段代码"
 ```
 
-### 其他配置参数
+✅ 好的 prompt:
+```
+"优化以下函数性能:
 
-#### 工作目录配置
+## 当前代码
+[代码]
 
-```bash
-# 指定项目根目录
-codex exec -C /path/to/project -m gpt-5.2 "分析项目架构"
+## 性能指标
+- 当前: p99 = 500ms
+- 目标: p99 < 100ms
+
+## 约束
+- 保持 API 兼容
+- 内存 <1GB
+- 并发安全
+
+## 期望输出
+- 热点分析
+- 优化方案 (至少 2 个)
+- 优化后代码
+- 预期性能提升
+"
 ```
 
-#### 输出配置
+### 多轮对话最佳实践
 
-```bash
-# 输出到文件
-codex exec -o output.md -m gpt-5.2 "生成架构文档"
+使用 `codex-reply` 进行深入讨论:
 
-# 输出格式（Markdown）
-codex exec -m gpt-5.2 "生成文档" > output.md
+```json
+// 第一轮
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "设计限流算法...",
+    "model": "gpt-5.2"
+  }
+}
+
+// 第二轮 - 追问细节
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "threadId": "[上次返回的threadId]",
+    "prompt": "详细解释 Token Bucket 的实现"
+  }
+}
+
+// 第三轮 - 请求代码
+{
+  "name": "mcp__codex-mcp-tool__codex-reply",
+  "parameters": {
+    "threadId": "[同一threadId]",
+    "prompt": "提供 Rust 完整实现"
+  }
+}
 ```
 
-#### 自动执行配置
+### 上下文传递最佳实践
 
-```bash
-# 自动执行模式（谨慎使用）
-codex exec --full-auto -m gpt-5.2 "重构代码"
+在 prompt 中传递丰富上下文:
+
+```json
+{
+  "name": "mcp__codex-mcp-tool__codex",
+  "parameters": {
+    "prompt": "优化性能:\n\n## 当前代码\n[代码片段]\n\n## 性能指标\n- p50: 50ms\n- p99: 500ms\n\n## 目标\n- p99 < 100ms\n\n## 约束\n- 保持 API 兼容\n- 内存 <1GB",
+    "model": "gpt-5.2"
+  }
+}
 ```
 
-## 🔧 高级用法
+---
 
-### 自定义审查指令
+## 常见问题 FAQ
 
-针对特定关注点进行代码审查。
+**Q1: 如何选择合适的模型?**
 
-**示例 1：关注安全问题**
-```bash
-codex review "重点检查 SQL 注入、XSS 和敏感信息泄露" \
-  -m gpt-5.1-codex-max \
-  -c 'model_reasoning_effort="xhigh"'
-```
-
-**示例 2：关注性能**
-```bash
-codex review "分析性能瓶颈，关注算法复杂度和不必要的计算" \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"'
-```
-
-**示例 3：关注并发安全**
-```bash
-codex review "检查线程安全、竞态条件和死锁风险" \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"'
-```
-
-### 输出到文件
-
-将分析结果保存到文件以便后续参考。
-
-**架构分析**
-```bash
-codex exec \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"' \
-  -o architecture-analysis.md \
-  "分析当前微服务架构，提供扩展性改进建议"
-```
-
-**性能优化报告**
-```bash
-codex exec \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"' \
-  -o performance-optimization.md \
-  "分析系统性能瓶颈，提供优化方案"
-```
-
-### 自动执行模式
-
-**⚠️ 警告**：自动执行模式会直接修改代码，使用前请确保：
-- 代码已提交到 Git
-- 在测试分支上操作
-- 理解可能的风险
-
-**示例：自动重构**
-```bash
-codex exec \
-  --full-auto \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"' \
-  "重构 auth 模块，提取公共逻辑到 utils"
-```
-
-### 指定工作目录
-
-在不同项目之间切换时指定工作目录。
-
-**分析特定项目**
-```bash
-codex exec \
-  -C /path/to/project-a \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"' \
-  "分析项目架构"
-```
-
-**对比多个项目**
-```bash
-# 项目 A
-codex exec -C /path/to/project-a -m gpt-5.2 "分析架构" > project-a.md
-
-# 项目 B
-codex exec -C /path/to/project-b -m gpt-5.2 "分析架构" > project-b.md
-```
-
-### 复杂场景示例
-
-**场景 1：分布式系统设计**
-```bash
-codex exec \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"' \
-  "设计一个分布式任务调度系统：
-
-要求：
-- 支持 10K 任务/秒
-- 任务优先级调度
-- 故障自动恢复
-- 水平扩展
-- 延迟 <100ms
-
-约束：
-- 使用 Redis 作为消息队列
-- PostgreSQL 存储任务状态
-- Kubernetes 部署
-
-输出：
-- 架构设计图
-- 核心组件说明
-- 数据流程
-- 扩展策略"
-```
-
-**场景 2：性能优化方案**
-```bash
-codex exec \
-  -m gpt-5.2 \
-  -c 'model_reasoning_effort="xhigh"' \
-  "优化 API 性能：
-
-当前状态：
-- p50: 50ms
-- p99: 500ms
-- p999: 2000ms
-- QPS: 1000
-
-目标：
-- p99 < 100ms
-- QPS > 5000
-
-瓶颈：
-- 数据库查询慢
-- N+1 查询问题
-- 缺少缓存
-
-提供：
-- 瓶颈分析
-- 优化方案
-- 预期效果
-- 实施步骤"
-```
-
-## ❓ 故障排查
-
-### 常见问题
-
-**Q1: Codex 响应很慢怎么办？**
-
-A: 检查以下几点：
-1. 是否使用了 gpt-5.2（响应较慢是正常的）
-2. 任务描述是否过于复杂
-3. 网络连接是否稳定
-4. 考虑使用 gpt-5.1-codex-max 处理简单任务
-
-**Q2: Codex 的建议不符合预期？**
-
-A: 改进方法：
-1. 提供更详细的上下文
-2. 明确约束条件和目标
-3. 使用自定义指令指定关注点
-4. 尝试使用 gpt-5.2 获得更深入的分析
-
-**Q3: 如何验证 Codex 的建议是否正确？**
-
-A: 验证步骤：
-1. 理解建议的原理和逻辑
-2. 在测试环境验证
-3. 编写单元测试
-4. 进行性能测试
-5. 代码审查
-
-**Q4: Codex 生成的代码有 bug 怎么办？**
-
-A: 处理方法：
-1. 不要盲目复制粘贴代码
-2. 理解代码逻辑
-3. 添加错误处理
-4. 编写测试用例
-5. 逐步集成到项目中
-
-**Q5: 如何选择合适的模型？**
-
-A: 参考决策树：
-- 单一目标、简单任务 → gpt-5.1-codex-max
+A: 参考决策树:
+- 单一目标、简单任务 → gpt-5.2-codex
 - 多约束、复杂任务 → gpt-5.2
-- 不确定时，优先使用 gpt-5.2
+- 不确定时,优先使用 gpt-5.2
 
-**Q6: model_reasoning_effort 应该设置为多少？**
+**Q2: model_reasoning_effort 应该设置为多少?**
 
-A: 推荐设置：
-- 默认使用 `high`（推荐）
-- 时间敏感的简单任务可用 `medium`
-- 避免使用 `low`（质量较差）
+A: 推荐 `xhigh` 确保质量。仅在时间极度敏感的简单任务使用 `medium`。
 
-**Q7: 自动执行模式安全吗？**
+**Q3: 如何处理超时?**
 
-A: 安全建议：
-- 仅在测试分支使用
-- 确保代码已提交
-- 理解可能的风险
-- 执行后仔细审查变更
-
-**Q8: 如何处理 Codex 超时？**
-
-A: 解决方法：
+A:
 1. 简化任务描述
 2. 拆分为多个小任务
 3. 检查网络连接
 4. 重试请求
 
-### 错误处理
+**Q4: 可以多轮对话吗?**
 
-**命令执行失败**
-```bash
-# 检查 Codex CLI 是否正确安装
-codex --version
+A: 可以。使用 `mcp__codex-mcp-tool__codex-reply` 继续会话。
 
-# 检查配置
-codex config show
+**Q5: 如何验证建议的正确性?**
 
-# 查看详细错误信息
-codex exec --verbose -m gpt-5.2 "任务描述"
-```
-
-**模型不可用**
-```bash
-# 列出可用模型
-codex models list
-
-# 使用备用模型
-codex exec -m gpt-5.1-codex-max "任务描述"
-```
-
-### 调试技巧
-
-**启用详细日志**
-```bash
-codex exec --verbose -m gpt-5.2 "任务描述"
-```
-
-**查看执行历史**
-```bash
-codex history
-```
-
-**测试连接**
-```bash
-codex ping
-```
-
-## 📊 性能优化
-
-### 模型选择策略
-
-**优化原则**：
-1. **成本优先**：简单任务使用 gpt-5.1-codex-max
-2. **质量优先**：复杂任务使用 gpt-5.2
-3. **平衡策略**：根据任务重要性选择
-
-**成本对比**：
-- gpt-5.1-codex-max：适合高频使用
-- gpt-5.2：适合关键决策
-
-**响应时间对比**：
-- gpt-5.1-codex-max：<10 秒
-- gpt-5.2：20-60 秒
-
-### 参数调优建议
-
-**推理强度调优**：
-```bash
-# 默认推荐（质量优先）
--c 'model_reasoning_effort="xhigh"'
-
-# 时间敏感（平衡）
--c 'model_reasoning_effort="medium"'
-
-# 快速原型（速度优先，不推荐）
--c 'model_reasoning_effort="low"'
-```
-
-**任务拆分策略**：
-- 大任务拆分为多个小任务
-- 每个任务专注单一目标
-- 并行执行多个任务
-
-**缓存策略**：
-- 相似任务复用结果
-- 保存常用分析到文件
-- 建立知识库
-
-## 📚 参考资源
-
-### 官方文档
-
-- **Codex CLI 文档**：查看 Codex CLI 官方文档获取最新功能和更新
-- **模型文档**：了解各模型的详细特性和限制
-
-### 相关工具
-
-- **Git**：版本控制，配合 `codex review` 使用
-- **IDE 集成**：部分 IDE 支持 Codex 集成
-- **CI/CD**：将 Codex 集成到持续集成流程
-
-### 最佳实践
-
-- **代码审查**：将 Codex 作为第一道审查关卡
-- **架构设计**：使用 Codex 进行架构评审和建议
-- **性能优化**：定期使用 Codex 分析性能瓶颈
-- **知识传承**：将 Codex 的分析结果文档化
-
-### 社区资源
-
-- **示例库**：查看常见任务的示例命令
-- **最佳实践**：学习其他团队的使用经验
-- **问题讨论**：参与社区讨论解决问题
+A:
+1. 理解建议的原理
+2. 在测试环境验证
+3. 编写单元测试
+4. 进行性能测试
+5. 代码审查
 
 ---
 
-**文档版本**：v1.0
-**最后更新**：2025-12-16
+## 故障排查
+
+### 诊断检查清单
+
+- [ ] Codex CLI 已正确安装
+- [ ] 配置正确
+- [ ] 网络连接正常
+- [ ] 任务描述清晰
+- [ ] 模型选择合适
+- [ ] 参数配置正确
+
+### 常见问题快速索引
+
+| 问题 | 可能原因 | 解决方案 |
+|------|---------|---------|
+| 工具调用失败 | CLI 未安装 | 安装 Codex CLI |
+| 响应超时 | 任务过于复杂 | 拆分任务 |
+| 输出质量差 | 模型选择不当 | 切换到 gpt-5.2 |
+| 格式不符合预期 | prompt 不清晰 | 提供详细约束 |
+
+### 调试技巧
+
+1. **启用详细日志**: 查看完整的 MCP 工具调用和响应
+2. **测试简单任务**: 确认基本功能正常
+3. **对比示例**: 参考文档中的示例调整参数
+4. **逐步调试**: 从简单任务开始,逐步增加复杂度
+
+---
+
+**文档版本**: v2.0
+**最后更新**: 2025-01-20

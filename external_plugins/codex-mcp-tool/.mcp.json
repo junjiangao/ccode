@@ -1,0 +1,10 @@
+{
+  "codex-mcp-tool": {
+    "type": "stdio",
+    "command": "codex",
+    "args": [
+      "mcp-server"
+    ],
+    "env": {}
+  }
+}
