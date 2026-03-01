@@ -2,10 +2,12 @@ mod commands;
 mod config;
 mod error;
 mod migrate;
+mod tmux_env;
 mod toml_config;
 
 use clap::{Parser, Subcommand};
 use error::AppResult;
+use tmux_env::TmuxEnvMode;
 
 /// ccode - Claude Code 环境切换工具
 ///
@@ -50,6 +52,9 @@ enum Commands {
         /// 指定配置组 (仅 direct)
         #[arg(long)]
         group: Option<String>,
+        /// tmux 环境同步策略：auto(默认)/always/never
+        #[arg(long, value_enum, default_value_t = TmuxEnvMode::Auto)]
+        tmux_env: TmuxEnvMode,
         /// 透传给claude的参数 (仅Direct模式支持，例如: run myprofile --version 或 run myprofile -- --help)
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         claude_args: Vec<String>,
@@ -67,12 +72,23 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+    /// tmux 相关操作
+    Tmux {
+        #[command(subcommand)]
+        action: TmuxAction,
+    },
 }
 
 #[derive(Subcommand)]
 enum ConfigAction {
     /// 将旧版 config.json 迁移/合并到 config.toml
     Merge {},
+}
+
+#[derive(Subcommand)]
+enum TmuxAction {
+    /// 清理 tmux 中 ccode 相关环境变量
+    ClearEnv {},
 }
 
 fn main() -> AppResult<()> {
@@ -90,11 +106,15 @@ fn main() -> AppResult<()> {
         Commands::Run {
             name,
             group,
+            tmux_env,
             claude_args,
-        } => commands::cmd_run_with_group(name, group, claude_args),
+        } => commands::cmd_run_with_group(name, group, tmux_env, claude_args),
         Commands::Remove { name, group } => commands::cmd_remove_with_group(name, group),
         Commands::Config { action } => match action {
             ConfigAction::Merge {} => commands::cmd_config_merge(),
+        },
+        Commands::Tmux { action } => match action {
+            TmuxAction::ClearEnv {} => commands::cmd_tmux_clear_env(),
         },
     }
 }

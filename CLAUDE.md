@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-版本: v0.4.0 | 更新日期: 2025-11-17
+版本: v0.4.1 | 更新日期: 2026-03-01
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -88,6 +88,7 @@ src/
 ├── main.rs          # CLI入口，命令路由和参数解析（包含启动自动迁移钩子）
 ├── commands.rs      # 所有命令的具体实现逻辑（含 ccode config merge）
 ├── toml_config.rs   # TOML 格式配置与 .env 读取/持久化
+├── tmux_env.rs      # tmux 环境同步与清理（Team/--tmux 场景）
 ├── migrate.rs       # JSON→TOML 迁移/合并实现（自动/手动）
 ├── config.rs        # 旧 JSON 结构（仅迁移使用）
 ├── error.rs         # 统一错误处理
@@ -229,9 +230,10 @@ project:<repo>:commit-convention
 - `list [--group direct]` - 列出配置
 - `add <name> [--group direct]` - 添加配置
 - `use <name> [--group direct]` - 设置默认配置
-- `run [name] [--group direct] [<claude_args>...]` - 启动并透传参数到 `claude`
+- `run [name] [--group direct] [--tmux-env auto|always|never] [<claude_args>...]` - 启动并透传参数到 `claude`
 - `remove <name> [--group direct]` - 删除配置
- - `config merge` - 将旧版 `config.json` 合并/迁移到 `config.toml`（成功后移除 JSON）
+- `config merge` - 将旧版 `config.json` 合并/迁移到 `config.toml`（成功后移除 JSON）
+- `tmux clear-env` - 清理 tmux 中 ccode 相关环境变量
 
 ## Direct 模式环境变量配置
 
@@ -318,6 +320,12 @@ ccode run myapi --help                          # ❌ 会显示ccode帮助而非
 3. **`--` 分隔符**：clap 自动识别并正确处理分隔符后的参数
 4. **冲突检测**：当参数与 ccode 自身参数冲突时，建议使用 `--` 分隔符
 5. 在 Direct 模式下将收集的参数附加到 `claude` 命令执行
+
+## tmux / Team 模式兼容
+
+- 背景：Claude Code 在 `--tmux`/Team 工作流中，新 pane/window 会从 tmux 会话环境继承变量；若 tmux `update-environment` 未包含 `ANTHROPIC_*`，后续实例可能丢失密钥与 URL。
+- 方案：`ccode run` 在 `--tmux-env=auto`（默认）下，检测到 `--tmux`/`--worktree` 或当前处于 tmux 会话时，临时补齐 tmux `update-environment`，并在命令结束后自动恢复原值。
+- 清理：`ccode tmux clear-env` 可手动清除 tmux 会话中的相关环境变量。
 
 ## 开发注意事项
 

@@ -125,6 +125,9 @@ ccode run minimax-m2         # 指定 profile
 # 透传参数
 ccode run minimax-m2 --version
 ccode run minimax-m2 -- --help
+
+# tmux 环境同步策略（team/--tmux 场景）
+ccode run minimax-m2 --tmux-env auto -- --worktree my-branch --tmux
 ```
 
 #### 添加配置（交互式）
@@ -216,12 +219,16 @@ ccode use <name>
 ccode remove <name>
 
 # 启动 claude（根据 config.toml 映射环境变量）
-ccode run [name] [<claude_args>...]
+ccode run [name] [--tmux-env <auto|always|never>] [<claude_args>...]
 
 # 示例：
 # ccode run myapi --version                    # 直接透传
 # ccode run myapi code                         # 透传子命令
 # ccode run myapi -- --help                    # 使用 -- 分隔符避免冲突
+# ccode run myapi --tmux-env always -- --worktree feat-a --tmux
+
+# 清理 tmux 中 ccode 相关环境变量
+ccode tmux clear-env
 
 # 删除配置
 ccode remove <name> [--group direct]
@@ -262,11 +269,36 @@ ccode remove <name> [--group direct]
    - `CLAUDE_CODE_MAX_OUTPUT_TOKENS` ← `max_tokens`（可选）
 4. 透传参数并启动 `claude`
 
+### tmux / Team 模式环境变量同步
+
+当 `claude` 使用 `--tmux`（通常伴随 `--worktree`）时，新 pane/window 继承的是 tmux 会话环境。
+`ccode run` 新增 `--tmux-env` 参数用于控制同步策略：
+
+- `auto`（默认）：检测到 `--tmux` / `--worktree` 参数，或当前就在 tmux 会话中时，临时补齐 tmux `update-environment`。
+- `always`：每次 `run` 都尝试进行 tmux 同步处理。
+- `never`：禁用 tmux 同步处理。
+
+示例：
+
+```bash
+ccode run myapi --tmux-env auto -- --worktree team-a --tmux
+ccode run myapi --tmux-env never -- --worktree team-a --tmux
+```
+
+安全说明：
+- `ccode` 不会把 token 值作为 tmux 命令参数传递；
+- tmux 会话环境仍可能保留变量名对应的值，必要时执行 `ccode tmux clear-env` 清理。
+
 <!-- Router 模式工作原理已移除 -->
 
 <!-- 架构图（CCR 集成）已移除 -->
 
 ## 📝 版本变更
+
+### v0.4.0（2026-03-01）
+- 新增：`ccode run --tmux-env <auto|always|never>`，修复 `claude --tmux`/Team 场景后续实例可能丢失 `ANTHROPIC_*` 环境变量的问题。
+- 新增：`ccode tmux clear-env`，用于手动清理 tmux 会话中的相关环境变量。
+- 行为：默认 `auto` 策略，仅在 tmux/worktree 相关场景触发环境同步。
 
 ### v0.3.0（2025-10-29）
 - 新增：自动迁移功能（存在 `config.json` 且无 `config.toml` 时自动迁移并备份）。

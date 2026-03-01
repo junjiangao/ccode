@@ -2,6 +2,17 @@
 
 本项目遵循 Keep a Changelog 的书写方式，并尽量遵循 语义化版本号（SemVer）。
 
+## [v0.4.1] - 2026-03-01
+
+重要改动
+- 新增
+  - `ccode run` 新增参数 `--tmux-env <auto|always|never>`（默认 `auto`），用于 Claude Code Team/`--tmux` 场景下的环境变量同步策略控制。
+  - 新增命令 `ccode tmux clear-env`，用于手动清理 tmux 会话中的 `ANTHROPIC_*` 与 `CLAUDE_CODE_MAX_OUTPUT_TOKENS` 相关环境变量。
+
+- 修复
+  - 修复在 tmux server 已存在时，后续 `claude` 实例可能丢失 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` 等变量的问题。
+  - `run` 在触发 tmux 策略时会临时合并 `update-environment`，确保新 pane/window 能继承所需变量，并在 `ccode run` 结束后恢复原配置。
+
 ## [v0.3.0] - 2025-10-29
 
 重要改动
@@ -43,4 +54,3 @@
 
 提示
 - 若 `Cargo.toml` 版本号未同步为 0.3.0，请在发布前更新以保持与文档一致。
-

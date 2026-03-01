@@ -1,5 +1,6 @@
 use crate::error::{AppError, AppResult};
 use crate::migrate;
+use crate::tmux_env::{self, TmuxEnvMode};
 use crate::toml_config::{TomlConfig, TomlProfile, load_token_from_env};
 use std::io::{self, Write};
 use std::process::Command;
@@ -37,9 +38,10 @@ pub fn cmd_use_with_group(name: String, _group: Option<String>) -> AppResult<()>
 pub fn cmd_run_with_group(
     name: Option<String>,
     _group: Option<String>,
+    tmux_env: TmuxEnvMode,
     claude_args: Vec<String>,
 ) -> AppResult<()> {
-    cmd_run_toml(name, claude_args)
+    cmd_run_toml(name, tmux_env, claude_args)
 }
 
 /// 删除配置
@@ -70,7 +72,11 @@ pub fn cmd_config_merge() -> AppResult<()> {
 }
 
 /// 使用 TOML 新格式运行 claude
-pub fn cmd_run_toml(name: Option<String>, claude_args: Vec<String>) -> AppResult<()> {
+pub fn cmd_run_toml(
+    name: Option<String>,
+    tmux_env: TmuxEnvMode,
+    claude_args: Vec<String>,
+) -> AppResult<()> {
     let config = TomlConfig::load()?;
     let toml_path = TomlConfig::get_config_path()?;
     let (profile_name, profile) = config.get_profile(name.as_deref())?;
@@ -98,6 +104,8 @@ pub fn cmd_run_toml(name: Option<String>, claude_args: Vec<String>) -> AppResult
             profile.model_sonnet.as_deref().unwrap_or("")
         );
     }
+
+    let _tmux_update_guard = tmux_env::try_patch_tmux_update_environment(tmux_env, &claude_args);
 
     let mut cmd = Command::new("claude");
     // 必填环境变量
@@ -148,6 +156,22 @@ pub fn cmd_run_toml(name: Option<String>, claude_args: Vec<String>) -> AppResult
         }
     }
 
+    Ok(())
+}
+
+/// 清理 tmux 中 ccode 注入相关环境变量
+pub fn cmd_tmux_clear_env() -> AppResult<()> {
+    let report = tmux_env::clear_tmux_env_vars()?;
+    if !report.had_server {
+        println!("ℹ️ 未检测到 tmux server，无需清理");
+        return Ok(());
+    }
+
+    println!(
+        "🧹 已清理 tmux 环境变量（会话数: {}）",
+        report.session_count
+    );
+    println!("ℹ️ 仅影响后续新建 pane/window，不影响已运行进程");
     Ok(())
 }
 
