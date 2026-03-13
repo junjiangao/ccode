@@ -19,7 +19,7 @@
     {
       "name": "ccode-skills",
       "description": "ccode 的skills集合",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./plugins/ccode-skills",
       "strict": false,
       "skills": [

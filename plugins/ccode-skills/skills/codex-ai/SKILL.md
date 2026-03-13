@@ -29,7 +29,7 @@ allowed-tools:
 ## 工作流程
 
 1. **识别任务类型**: 代码审查/算法设计/架构分析/性能优化
-2. **选择模型**: 简单任务 → gpt-5.2-codex, 复杂任务 → gpt-5.2
+2. **选择模型**: 简单任务 → gpt-5.3-codex, 复杂任务 → gpt-5.4
 3. **准备上下文**: 收集 git diff、代码片段、约束条件
 4. **调用 Codex**: 使用 `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex`
 5. **格式化输出**: 展示分析结果和下一步行动
@@ -56,7 +56,7 @@ allowed-tools:
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "<任务描述>",
-    "model": "gpt-5.2-codex",
+    "model": "gpt-5.3-codex",
     "config": {"model_reasoning_effort": "xhigh"}
   }
 }
@@ -68,8 +68,8 @@ allowed-tools:
 
 ## 模型选择
 
-- **gpt-5.2-codex**: 简单任务（代码审查、简单重构、单一目标算法）
-- **gpt-5.2**: 复杂任务（复杂算法、架构评审、性能优化、多约束权衡）
+- **gpt-5.3-codex**: 简单任务（代码审查、简单重构、单一目标算法）
+- **gpt-5.4**: 复杂任务（复杂算法、架构评审、性能优化、多约束权衡）
 
 **详细决策标准**: 查看 [REFERENCE.md#模型选择详解](REFERENCE.md#模型选择详解)
 

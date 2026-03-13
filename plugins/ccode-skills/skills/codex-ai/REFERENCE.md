@@ -9,6 +9,7 @@
 - [详细场景示例](#详细场景示例)
 - [模型选择详解](#模型选择详解)
 - [配置选项详解](#配置选项详解)
+- [快速诊断流程](#快速诊断流程)
 - [错误处理完整指南](#错误处理完整指南)
 - [最佳实践](#最佳实践)
 - [常见问题 FAQ](#常见问题-faq)
@@ -27,7 +28,7 @@
 | 参数 | 类型 | 必需 | 说明 | 可选值 | 默认值 |
 |------|------|------|------|--------|--------|
 | `prompt` | string | 是 | 任务描述 | - | - |
-| `model` | string | 否 | 模型选择 | `gpt-5.2-codex`, `gpt-5.2` | - |
+| `model` | string | 否 | 模型选择 | `gpt-5.3-codex`, `gpt-5.4` | - |
 | `config` | object | 否 | 配置覆盖 | - | - |
 | `config.model_reasoning_effort` | string | 否 | 推理强度 | `xhigh`, `high`, `medium` | `xhigh` |
 | `approval-policy` | string | 否 | 审批策略 | `untrusted`, `on-failure`, `on-request`, `never` | `never` |
@@ -43,7 +44,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "审查以下代码变更,关注潜在问题、性能和安全性:\n\n[git diff 输出]",
-    "model": "gpt-5.2-codex",
+    "model": "gpt-5.3-codex",
     "config": {
       "model_reasoning_effort": "xhigh"
     },
@@ -78,7 +79,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "设计一个 LRU 缓存,容量 1000 项,支持并发访问",
-    "model": "gpt-5.2-codex",
+    "model": "gpt-5.3-codex",
     "config": {
       "model_reasoning_effort": "xhigh"
     },
@@ -95,7 +96,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "设计一个分布式限流算法:\n- 处理 10K req/s\n- 每用户 100 req/min\n- 延迟 <1ms\n\n要求:\n- 完整数据结构设计\n- 并发控制策略\n- 性能分析",
-    "model": "gpt-5.2",
+    "model": "gpt-5.4",
     "config": {
       "model_reasoning_effort": "xhigh"
     },
@@ -112,7 +113,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "分析当前微服务架构,从 1K 扩展到 10K req/sec:\n- 当前: API Gateway → 5个服务 → PostgreSQL + Redis\n- 挑战: 数据库 p99 瓶颈、服务紧耦合\n- 建议改进方案",
-    "model": "gpt-5.2",
+    "model": "gpt-5.4",
     "config": {
       "model_reasoning_effort": "xhigh"
     },
@@ -129,7 +130,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "优化以下函数性能:\n- 当前延迟: p99 = 500ms\n- 目标: p99 < 100ms\n- 分析热点并提供优化方案\n\n[代码]",
-    "model": "gpt-5.2",
+    "model": "gpt-5.4",
     "config": {
       "model_reasoning_effort": "xhigh"
     },
@@ -185,7 +186,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "审查以下代码变更:\n\n[步骤1的输出]",
-    "model": "gpt-5.2-codex",
+    "model": "gpt-5.3-codex",
     "config": {
       "model_reasoning_effort": "xhigh"
     }
@@ -214,7 +215,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "设计分布式限流算法:\n- 10K req/s\n- 100 req/min per user\n- <1ms 延迟",
-    "model": "gpt-5.2"
+    "model": "gpt-5.4"
   }
 }
 ```
@@ -262,7 +263,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "分析当前微服务架构,从 1K 扩展到 10K req/sec:\n- 当前: API Gateway → 5个服务 → PostgreSQL + Redis\n- 挑战: 数据库 p99 瓶颈、服务紧耦合\n- 建议改进方案",
-    "model": "gpt-5.2",
+    "model": "gpt-5.4",
     "config": {
       "model_reasoning_effort": "xhigh"
     },
@@ -333,7 +334,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "优化以下函数性能:\n- 当前延迟: p99 = 500ms\n- 目标: p99 < 100ms\n- 分析热点并提供优化方案\n\n[代码]",
-    "model": "gpt-5.2",
+    "model": "gpt-5.4",
     "config": {
       "model_reasoning_effort": "xhigh"
     },
@@ -381,7 +382,7 @@
 
 ## 模型选择详解
 
-### gpt-5.2-codex
+### gpt-5.3-codex
 
 **定位**: 快速高效的日常开发助手
 
@@ -403,7 +404,7 @@
 - 系统级架构设计
 - 复杂性能优化
 
-### gpt-5.2
+### gpt-5.4
 
 **定位**: 深度推理的复杂问题解决专家
 
@@ -429,20 +430,20 @@
 任务描述
     │
     ├─ 单一明确目标?
-    │   ├─ 是 → gpt-5.2-codex
+    │   ├─ 是 → gpt-5.3-codex
     │   └─ 否 → 继续判断
     │
     ├─ 多个约束需要权衡?
-    │   ├─ 是 → gpt-5.2
+    │   ├─ 是 → gpt-5.4
     │   └─ 否 → 继续判断
     │
     ├─ 涉及系统级设计?
-    │   ├─ 是 → gpt-5.2
+    │   ├─ 是 → gpt-5.4
     │   └─ 否 → 继续判断
     │
     ├─ 需要深度推理?
-    │   ├─ 是 → gpt-5.2
-    │   └─ 否 → gpt-5.2-codex
+    │   ├─ 是 → gpt-5.4
+    │   └─ 否 → gpt-5.3-codex
 ```
 
 ---
@@ -486,6 +487,71 @@
 
 ---
 
+## 快速诊断流程
+
+遇到问题时，按以下 3 个步骤快速诊断。
+
+### Step 1: 基础检查
+
+检查 Codex CLI 的安装和配置状态：
+
+```bash
+# 检查安装版本
+codex --version
+
+# 查看当前配置
+codex config show
+```
+
+**期望结果**：
+- `codex --version` 应显示版本号（如 `codex 1.x.x`）
+- `codex config show` 应显示有效的配置项
+
+**如果失败**：
+- `command not found` → 需要安装 Codex CLI
+- 配置报错 → 检查 `~/.config/codex/config.toml` 或运行 `codex config init`
+
+### Step 2: 测试简单任务
+
+使用快速模型测试基本功能：
+
+```bash
+codex exec -m gpt-5.3-codex "解释 1+1=2 的数学原理"
+```
+
+**期望结果**：
+- 几秒内收到清晰的解释
+
+**如果失败**：
+- 花时间过长 → 检查网络连接
+- 返回错误 → 查看详细错误信息，参考 [错误处理完整指南](#错误处理完整指南)
+
+### Step 3: 测试复杂任务
+
+使用深度推理模型测试复杂场景：
+
+```bash
+codex exec -m gpt-5.4 -c 'model_reasoning_effort="xhigh"' "设计一个简单的 LRU 缓存算法，需要支持并发访问"
+```
+
+**期望结果**：
+- 20-60 秒内收到完整的算法设计和代码
+
+**如果失败**：
+- 响应质量差 → 检查 prompt 是否清晰
+- 超时 → 简化任务描述或拆分为多个小任务
+
+### 问题 → 文档快速索引
+
+| 问题症状 | 参考文档 |
+|---------|---------|
+| 工具调用失败 | [错误处理完整指南 → 工具调用失败](#错误场景-1-工具调用失败) |
+| 输出不符合预期 | [错误处理完整指南 → 任务描述不清晰](#错误场景-2-任务描述不清晰) |
+| 模型选择不当 | [错误处理完整指南 → 模型选择不当](#错误场景-3-模型选择不当) |
+| 通用问题排查 | [故障排查 → 诊断检查清单](#诊断检查清单) |
+
+---
+
 ## 错误处理完整指南
 
 ### 错误场景 1: 工具调用失败
@@ -522,7 +588,7 @@
 
 ### 错误场景 3: 模型选择不当
 
-**症状**: 简单任务使用 gpt-5.2 导致响应慢,或复杂任务使用 gpt-5.2-codex 质量不足
+**症状**: 简单任务使用 gpt-5.4 导致响应慢,或复杂任务使用 gpt-5.3-codex 质量不足
 
 **解决方案**:
 1. 重新评估任务复杂度
@@ -582,7 +648,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "设计限流算法...",
-    "model": "gpt-5.2"
+    "model": "gpt-5.4"
   }
 }
 
@@ -614,7 +680,7 @@
   "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
   "parameters": {
     "prompt": "优化性能:\n\n## 当前代码\n[代码片段]\n\n## 性能指标\n- p50: 50ms\n- p99: 500ms\n\n## 目标\n- p99 < 100ms\n\n## 约束\n- 保持 API 兼容\n- 内存 <1GB",
-    "model": "gpt-5.2"
+    "model": "gpt-5.4"
   }
 }
 ```
@@ -626,9 +692,9 @@
 **Q1: 如何选择合适的模型?**
 
 A: 参考决策树:
-- 单一目标、简单任务 → gpt-5.2-codex
-- 多约束、复杂任务 → gpt-5.2
-- 不确定时,优先使用 gpt-5.2
+- 单一目标、简单任务 → gpt-5.3-codex
+- 多约束、复杂任务 → gpt-5.4
+- 不确定时,优先使用 gpt-5.4
 
 **Q2: model_reasoning_effort 应该设置为多少?**
 
@@ -674,7 +740,7 @@ A:
 |------|---------|---------|
 | 工具调用失败 | CLI 未安装 | 安装 Codex CLI |
 | 响应超时 | 任务过于复杂 | 拆分任务 |
-| 输出质量差 | 模型选择不当 | 切换到 gpt-5.2 |
+| 输出质量差 | 模型选择不当 | 切换到 gpt-5.4 |
 | 格式不符合预期 | prompt 不清晰 | 提供详细约束 |
 
 ### 调试技巧
