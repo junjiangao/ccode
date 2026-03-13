@@ -107,6 +107,33 @@ pub fn cmd_run_toml(
 
     let _tmux_update_guard = tmux_env::try_patch_tmux_update_environment(tmux_env, &claude_args);
 
+    // 设置需要注入到 tmux 全局的环境变量
+    let mut env_vars = vec![
+        ("ANTHROPIC_AUTH_TOKEN".to_string(), token.clone()),
+        ("ANTHROPIC_BASE_URL".to_string(), profile.base_url.clone()),
+    ];
+    if let Some(m) = &profile.model {
+        env_vars.push(("ANTHROPIC_MODEL".to_string(), m.clone()));
+    }
+    if let Some(m) = &profile.model_haiku {
+        env_vars.push(("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), m.clone()));
+        env_vars.push(("ANTHROPIC_SMALL_FAST_MODEL".to_string(), m.clone()));
+    }
+    // opus/sonnet 回退逻辑：未指定则使用默认模型
+    let opus_model = profile.model_opus.as_ref().or(profile.model.as_ref());
+    if let Some(m) = opus_model {
+        env_vars.push(("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), m.clone()));
+    }
+    let sonnet_model = profile.model_sonnet.as_ref().or(profile.model.as_ref());
+    if let Some(m) = sonnet_model {
+        env_vars.push(("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), m.clone()));
+    }
+    if let Some(max) = &profile.max_tokens {
+        env_vars.push(("CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string(), max.clone()));
+    }
+
+    let _tmux_global_env_guard = tmux_env::try_set_tmux_global_env(&env_vars);
+
     let mut cmd = Command::new("claude");
     // 必填环境变量
     cmd.env("ANTHROPIC_AUTH_TOKEN", &token);
@@ -122,11 +149,14 @@ pub fn cmd_run_toml(
         // 兼容变量（已弃用，但为向后兼容继续设置）
         cmd.env("ANTHROPIC_SMALL_FAST_MODEL", m);
     }
-    if let Some(m) = &profile.model_sonnet {
-        cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
-    }
-    if let Some(m) = &profile.model_opus {
+    // opus/sonnet 回退逻辑：未指定则使用默认模型
+    let opus_model_fallback = profile.model_opus.as_ref().or(profile.model.as_ref());
+    if let Some(m) = opus_model_fallback {
         cmd.env("ANTHROPIC_DEFAULT_OPUS_MODEL", m);
+    }
+    let sonnet_model_fallback = profile.model_sonnet.as_ref().or(profile.model.as_ref());
+    if let Some(m) = sonnet_model_fallback {
+        cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
     }
     if let Some(max) = &profile.max_tokens {
         cmd.env("CLAUDE_CODE_MAX_OUTPUT_TOKENS", max);

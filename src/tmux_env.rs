@@ -26,6 +26,11 @@ pub struct TmuxUpdateEnvGuard {
     old_value: String,
 }
 
+pub struct TmxGlobalEnvGuard {
+    _old_update_env: TmuxUpdateEnvGuard,
+    vars_to_clear: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct TmuxClearReport {
     pub had_server: bool,
@@ -73,6 +78,48 @@ pub fn try_patch_tmux_update_environment(
 
     println!("🧷 已为 tmux 临时启用 Claude 环境变量同步");
     Some(TmuxUpdateEnvGuard { old_value })
+}
+
+/// 设置 tmux 全局环境变量（使新 pane/window 能继承）
+pub fn try_set_tmux_global_env(env_vars: &[(String, String)]) -> Option<TmxGlobalEnvGuard> {
+    if env_vars.is_empty() {
+        return None;
+    }
+
+    // 检查 tmux server 是否运行
+    match tmux_server_running() {
+        Ok(true) => {}
+        Ok(false) => return None, // tmux server 未运行，静默跳过
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            // tmux 未安装，静默跳过
+            return None;
+        }
+        Err(e) => {
+            // 其他错误，记录警告但不阻断流程
+            eprintln!("⚠️  检测 tmux 状态失败，跳过设置全局环境变量: {e}");
+            return None;
+        }
+    }
+
+    let mut vars_to_clear: Vec<String> = Vec::new();
+    for (key, value) in env_vars {
+        if let Err(e) = tmux_set_global_env(key, value) {
+            eprintln!("⚠️  设置 tmux 全局环境变量 {key} 失败: {e}");
+            // 清理已设置的变量
+            for var in &vars_to_clear {
+                let _ = tmux_unset_global(var);
+            }
+            return None;
+        }
+        vars_to_clear.push(key.clone());
+    }
+
+    Some(TmxGlobalEnvGuard {
+        _old_update_env: TmuxUpdateEnvGuard {
+            old_value: String::new(),
+        },
+        vars_to_clear,
+    })
 }
 
 pub fn clear_tmux_env_vars() -> AppResult<TmuxClearReport> {
@@ -152,6 +199,16 @@ impl Drop for TmuxUpdateEnvGuard {
     }
 }
 
+impl Drop for TmxGlobalEnvGuard {
+    fn drop(&mut self) {
+        for var in &self.vars_to_clear {
+            if let Err(e) = tmux_unset_global(var) {
+                eprintln!("⚠️  清理 tmux 全局环境变量 {var} 失败: {e}");
+            }
+        }
+    }
+}
+
 fn should_patch_tmux_env(mode: TmuxEnvMode, claude_args: &[String]) -> bool {
     match mode {
         TmuxEnvMode::Never => false,
@@ -199,6 +256,17 @@ fn tmux_unset_session(session: &str, var: &str) -> Result<(), String> {
     }
 
     Err(stderr_string(&output))
+}
+
+fn tmux_set_global_env(var: &str, value: &str) -> AppResult<()> {
+    let output = run_tmux(&["set-environment", "-g", var, value]).map_err(tmux_io_to_app_error)?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(AppError::CommandExecution(format!(
+        "设置 tmux 全局环境变量失败({var}): {}",
+        stderr_string(&output)
+    )))
 }
 
 fn tmux_server_running() -> io::Result<bool> {
