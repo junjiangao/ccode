@@ -326,7 +326,11 @@ fn stderr_string(output: &Output) -> String {
 
 fn is_no_server_message(msg: &str) -> bool {
     let lower = msg.to_ascii_lowercase();
-    lower.contains("no server running") || lower.contains("failed to connect to server")
+    lower.contains("no server running")
+        || lower.contains("failed to connect to server")
+        || (lower.contains("error connecting to")
+            && (lower.contains("no such file or directory")
+                || lower.contains("connection refused")))
 }
 
 fn is_session_not_found_message(msg: &str) -> bool {
@@ -380,5 +384,12 @@ mod tests {
             "--version".to_string(),
             "code".to_string(),
         ]));
+    }
+
+    #[test]
+    fn treat_missing_tmux_socket_as_no_server() {
+        assert!(is_no_server_message(
+            "error connecting to /tmp/tmux-14397/default (No such file or directory)"
+        ));
     }
 }
