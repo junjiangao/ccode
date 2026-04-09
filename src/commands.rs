@@ -1,8 +1,156 @@
 use crate::error::{AppError, AppResult};
 use crate::tmux_env::{self, TmuxEnvMode};
 use crate::toml_config::{TomlConfig, TomlProfile, load_token_from_env};
+use serde_json::Value;
+use std::collections::HashSet;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::Command;
+
+/// 需要检查冲突的环境变量列表
+const RELEVANT_ENV_VARS: &[&str] = &[
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_SMALL_FAST_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+];
+
+/// 获取 Claude Code settings.json 路径
+///
+/// 支持通过 --settings 参数指定自定义路径，否则使用默认位置
+fn get_settings_json_path(claude_args: &[String]) -> PathBuf {
+    // 检查 claude_args 中是否有 --settings 参数
+    for i in 0..claude_args.len().saturating_sub(1) {
+        if claude_args[i] == "--settings" {
+            if let Some(path) = claude_args.get(i + 1) {
+                return PathBuf::from(path);
+            }
+        }
+    }
+
+    // 默认位置
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home).join(".claude/settings.json")
+}
+
+/// 从 settings.json 读取环境变量
+fn read_settings_env(claude_args: &[String]) -> AppResult<Vec<(String, String)>> {
+    let path = get_settings_json_path(claude_args);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = std::fs::read_to_string(&path).map_err(AppError::Io)?;
+    let json: Value = serde_json::from_str(&content).map_err(AppError::Json)?;
+
+    if let Some(env) = json.get("env").and_then(|v| v.as_object()) {
+        let vars: Vec<(String, String)> = env
+            .iter()
+            .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+            .collect();
+        Ok(vars)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+/// 检测环境变量冲突
+///
+/// 检查当前进程环境和 settings.json 中是否存在 ccode 相关的环境变量，如果存在则给出警告
+/// 这些环境变量可能会覆盖 ccode 的配置，导致配置不生效
+fn detect_env_conflicts(profile_has: &HashSet<String>, claude_args: &[String], quiet: bool) {
+    let mut all_conflicts: Vec<(String, Option<String>, String)> = Vec::new();
+
+    // 1. 检查当前进程环境变量
+    let process_conflicts: Vec<String> = RELEVANT_ENV_VARS
+        .iter()
+        .filter(|var| std::env::var(var).is_ok())
+        .filter(|&var| profile_has.contains(*var))
+        .map(|s| s.to_string())
+        .collect();
+
+    for var in process_conflicts {
+        if let Ok(val) = std::env::var(&var) {
+            let display_val = if var.contains("TOKEN") && val.len() > 8 {
+                format!("{}***", &val[..8])
+            } else {
+                val.clone()
+            };
+            all_conflicts.push((var, Some(display_val), "进程环境".to_string()));
+        }
+    }
+
+    // 2. 检查 settings.json 中的环境变量
+    if let Ok(settings_vars) = read_settings_env(claude_args) {
+        for (key, val) in settings_vars {
+            if RELEVANT_ENV_VARS.contains(&key.as_str()) && profile_has.contains(&key) {
+                let display_val = if key.contains("TOKEN") && val.len() > 8 {
+                    format!("{}***", &val[..8])
+                } else {
+                    val.clone()
+                };
+                // 检查是否已经在进程环境中检测到，避免重复
+                if !all_conflicts
+                    .iter()
+                    .any(|(k, _, source)| k == &key && source == "进程环境")
+                {
+                    all_conflicts.push((key, Some(display_val), "settings.json".to_string()));
+                }
+            }
+        }
+    }
+
+    // 按来源分组显示
+    if !all_conflicts.is_empty() && !quiet {
+        println!("⚠️  检测到环境变量冲突：");
+        println!("   以下环境变量可能会覆盖 ccode 的配置：");
+
+        let mut process_env_conflicts: Vec<(String, String)> = Vec::new();
+        let mut settings_conflicts: Vec<(String, String)> = Vec::new();
+
+        for (var, val, source) in all_conflicts {
+            if source == "进程环境" {
+                if let Some(v) = val {
+                    process_env_conflicts.push((var, v));
+                }
+            } else if source == "settings.json"
+                && let Some(v) = val
+            {
+                settings_conflicts.push((var, v));
+            }
+        }
+
+        if !process_env_conflicts.is_empty() {
+            println!();
+            println!("   📌 进程环境变量：");
+            for (var, val) in process_env_conflicts {
+                println!("   - {}={}", var, val);
+            }
+        }
+
+        if !settings_conflicts.is_empty() {
+            println!();
+            println!(
+                "   📄 settings.json ({}):",
+                get_settings_json_path(claude_args).display()
+            );
+            for (var, val) in settings_conflicts {
+                println!("   - {}={}", var, val);
+            }
+        }
+
+        println!();
+        println!("   💡 建议解决方案：");
+        println!("      1. 进程环境变量：使用 'unset' 命令清除（如：unset ANTHROPIC_AUTH_TOKEN）");
+        println!("      2. settings.json：编辑文件移除上述环境变量配置");
+        println!("      3. ccode 将继续执行，但上述变量可能会覆盖配置");
+        println!();
+    }
+}
 
 /// 读取可选字符串输入的通用函数
 fn read_optional_input(prompt: &str) -> AppResult<Option<String>> {
@@ -176,6 +324,27 @@ pub fn cmd_run(
 
     // 读取 token：优先同目录 .env，其次系统环境
     let token = load_token_from_env(&toml_path, &profile.env_key)?;
+
+    // 检测环境变量冲突
+    // 构建 profile 将要设置的环境变量集合
+    let mut profile_env_vars: HashSet<String> = HashSet::new();
+    profile_env_vars.insert("ANTHROPIC_AUTH_TOKEN".to_string());
+    profile_env_vars.insert("ANTHROPIC_BASE_URL".to_string());
+    if profile.model.is_some() {
+        profile_env_vars.insert("ANTHROPIC_MODEL".to_string());
+    }
+    if profile.model_haiku.is_some() {
+        profile_env_vars.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string());
+        profile_env_vars.insert("ANTHROPIC_SMALL_FAST_MODEL".to_string());
+    }
+    // opus/sonnet 只要 profile.model 存在就一定会设置
+    profile_env_vars.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string());
+    profile_env_vars.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string());
+    if profile.max_tokens.is_some() {
+        profile_env_vars.insert("CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string());
+    }
+
+    detect_env_conflicts(&profile_env_vars, &claude_args, quiet);
 
     if !quiet {
         println!("🚀 使用 TOML 配置 '{profile_name}' 启动 claude...");

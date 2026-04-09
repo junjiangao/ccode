@@ -287,7 +287,12 @@ ccode profile clear-env               # 清理 tmux 中 ccode 相关环境变量
 ### Direct 模式（TOML）
 1. 解析 `~/.config/ccode/config.toml`，选取指定或默认 `profile`
 2. 加载同级 `.env`（若存在），并回落至系统环境
-3. 设置环境变量：
+3. **检测环境变量冲突**（重要）：
+   - 检查进程环境变量中的 `ANTHROPIC_*` 和 `CLAUDE_CODE_*` 变量
+   - 检查 `~/.claude/settings.json` 中的 `env` 节点
+   - 支持 `--settings` 参数指定的自定义配置文件
+   - 发现冲突时显示警告，建议用户清理
+4. 设置环境变量：
    - `ANTHROPIC_AUTH_TOKEN` ← 由 `env_key` 指向的值
    - `ANTHROPIC_BASE_URL` ← `base_url`
    - `ANTHROPIC_MODEL` ← `model`（可选）
@@ -296,7 +301,56 @@ ccode profile clear-env               # 清理 tmux 中 ccode 相关环境变量
    - `ANTHROPIC_DEFAULT_SONNET_MODEL` ← `model_sonnet`（可选）
    - `ANTHROPIC_DEFAULT_OPUS_MODEL` ← `model_opus`（可选）
    - `CLAUDE_CODE_MAX_OUTPUT_TOKENS` ← `max_tokens`（可选）
-4. 透传参数并启动 `claude`
+5. 透传参数并启动 `claude`
+
+### 环境变量冲突检测
+
+`ccode` 会在启动 `claude` 前自动检测环境变量冲突，确保您的配置正确生效。
+
+**检测范围：**
+- 进程环境变量（shell 或系统设置的变量）
+- `~/.claude/settings.json` 中的 `env` 节点
+- 通过 `--settings` 参数指定的自定义配置文件
+
+**检测的环境变量：**
+- `ANTHROPIC_AUTH_TOKEN`
+- `ANTHROPIC_BASE_URL`
+- `ANTHROPIC_MODEL`
+- `ANTHROPIC_DEFAULT_HAIKU_MODEL`
+- `ANTHROPIC_SMALL_FAST_MODEL`
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`
+- `ANTHROPIC_DEFAULT_OPUS_MODEL`
+- `CLAUDE_CODE_MAX_OUTPUT_TOKENS`
+
+**冲突警告示例：**
+```
+⚠️  检测到环境变量冲突：
+   以下环境变量可能会覆盖 ccode 的配置：
+
+   📌 进程环境变量：
+   - ANTHROPIC_AUTH_TOKEN=sk-ant-t***
+   - ANTHROPIC_BASE_URL=https://ai.uniontech.com/api/anthropic
+
+   📄 settings.json (/tmp/test_settings.json):
+   - CLAUDE_CODE_MAX_OUTPUT_TOKENS=99999
+
+   💡 建议解决方案：
+      1. 进程环境变量：使用 'unset' 命令清除（如：unset ANTHROPIC_AUTH_TOKEN）
+      2. settings.json：编辑文件移除上述环境变量配置
+      3. ccode 将继续执行，但上述变量可能会覆盖配置
+```
+
+**使用方式：**
+```bash
+# 正常启动，自动检测冲突
+ccode profile run uniontech
+
+# 使用自定义 settings.json
+ccode profile run uniontech -- --settings /path/to/settings.json
+
+# 静默模式（不显示冲突警告）
+ccode profile --quiet run uniontech
+```
 
 ### tmux / Team 模式环境变量同步
 
@@ -328,8 +382,9 @@ ccode run myapi --tmux-env never -- --worktree team-a --tmux
 - **变更（破坏性）**：重构命令结构，引入 `profile` 子命令统一管理配置。
 - **废弃命令**：`list`/`add`/`use`/`remove`/`config`/`tmux` 已废弃，使用时会显示友好提示。
 - **新增**：无参数直接启动（`ccode`）、quiet 模式（减少冗余输出）、废弃命令检测与提示。
+- **新增**：环境变量冲突检测功能，支持进程环境和 `settings.json` 检测，避免配置不生效。
 - **优化**：移除 `--group` 参数和手动迁移功能、标记死代码、升级主要依赖、简化命令实现。
-- **文档**：更新命令参考和版本变更说明。
+- **文档**：更新命令参考、版本变更说明，新增环境变量冲突检测章节。
 
 ### v0.4.0（2026-03-01）
 - 新增：`ccode run --tmux-env <auto|always|never>`，修复 `claude --tmux`/Team 场景后续实例可能丢失 `ANTHROPIC_*` 环境变量的问题。

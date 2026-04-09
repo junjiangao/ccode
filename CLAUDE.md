@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-版本: v0.4.1 | 更新日期: 2026-03-01
+版本: v0.5.0 | 更新日期: 2026-04-09
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -326,6 +326,59 @@ ccode run myapi --help                          # ❌ 会显示ccode帮助而非
 - 背景：Claude Code 在 `--tmux`/Team 工作流中，新 pane/window 会从 tmux 会话环境继承变量；若 tmux `update-environment` 未包含 `ANTHROPIC_*`，后续实例可能丢失密钥与 URL。
 - 方案：`ccode run` 在 `--tmux-env=auto`（默认）下，检测到 `--tmux`/`--worktree` 或当前处于 tmux 会话时，临时补齐 tmux `update-environment`，并在命令结束后自动恢复原值。
 - 清理：`ccode tmux clear-env` 可手动清除 tmux 会话中的相关环境变量。
+
+## 环境变量冲突检测
+
+`ccode` 在启动 `claude` 前会自动检测环境变量冲突，确保配置正确生效。
+
+### 检测范围
+
+- **进程环境变量**：shell 或系统设置的环境变量
+- **settings.json**：`~/.claude/settings.json` 中的 `env` 节点
+- **自定义配置文件**：通过 `--settings` 参数指定的配置文件
+
+### 检测的环境变量
+
+- `ANTHROPIC_AUTH_TOKEN`
+- `ANTHROPIC_BASE_URL`
+- `ANTHROPIC_MODEL`
+- `ANTHROPIC_DEFAULT_HAIKU_MODEL`
+- `ANTHROPIC_SMALL_FAST_MODEL`
+- `ANTHROPIC_DEFAULT_SONNET_MODEL`
+- `ANTHROPIC_DEFAULT_OPUS_MODEL`
+- `CLAUDE_CODE_MAX_OUTPUT_TOKENS`
+
+### 冲突警告示例
+
+```
+⚠️  检测到环境变量冲突：
+   以下环境变量可能会覆盖 ccode 的配置：
+
+   📌 进程环境变量：
+   - ANTHROPIC_AUTH_TOKEN=ut-46ff9***
+   - ANTHROPIC_BASE_URL=https://ai.uniontech.com/api/anthropic
+
+   📄 settings.json (/tmp/test_settings.json):
+   - CLAUDE_CODE_MAX_OUTPUT_TOKENS=99999
+
+   💡 建议解决方案：
+      1. 进程环境变量：使用 'unset' 命令清除（如：unset ANTHROPIC_AUTH_TOKEN）
+      2. settings.json：编辑文件移除上述环境变量配置
+      3. ccode 将继续执行，但上述变量可能会覆盖配置
+```
+
+### 使用示例
+
+```bash
+# 使用默认配置检测冲突
+ccode profile run uniontech
+
+# 使用自定义 settings.json 并检测冲突
+ccode profile run uniontech -- --settings /path/to/settings.json
+
+# 静默模式（不显示冲突警告）
+ccode profile run --quiet uniontech
+```
 
 ## 开发注意事项
 
