@@ -29,10 +29,16 @@ impl fmt::Display for AppError {
             AppError::Json(err) => write!(f, "JSON格式错误: {err}"),
             AppError::Toml(err) => write!(f, "TOML格式错误: {err}"),
             AppError::ConfigNotFound => {
-                write!(f, "配置文件不存在，请使用 'ccode add <name>' 添加配置")
+                write!(
+                    f,
+                    "配置文件不存在，请使用 'ccode profile add <name>' 添加配置"
+                )
             }
             AppError::ProfileNotFound(name) => {
-                write!(f, "配置 '{name}' 不存在，请使用 'ccode list' 查看可用配置")
+                write!(
+                    f,
+                    "配置 '{name}' 不存在，请使用 'ccode profile list' 查看可用配置"
+                )
             }
             AppError::InvalidConfig(msg) => write!(f, "无效配置: {msg}"),
             AppError::CommandExecution(msg) => write!(f, "命令执行失败: {msg}"),

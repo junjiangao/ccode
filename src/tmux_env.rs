@@ -40,6 +40,7 @@ pub struct TmuxClearReport {
 pub fn try_patch_tmux_update_environment(
     mode: TmuxEnvMode,
     claude_args: &[String],
+    quiet: bool,
 ) -> Option<TmuxUpdateEnvGuard> {
     if !should_patch_tmux_env(mode, claude_args) {
         return None;
@@ -49,11 +50,15 @@ pub fn try_patch_tmux_update_environment(
         Ok(true) => {}
         Ok(false) => return None,
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            eprintln!("⚠️  未检测到 tmux，跳过 tmux 环境同步: {e}");
+            if !quiet {
+                eprintln!("⚠️  未检测到 tmux，跳过 tmux 环境同步: {e}");
+            }
             return None;
         }
         Err(e) => {
-            eprintln!("⚠️  检测 tmux 状态失败，跳过 tmux 环境同步: {e}");
+            if !quiet {
+                eprintln!("⚠️  检测 tmux 状态失败，跳过 tmux 环境同步: {e}");
+            }
             return None;
         }
     }
@@ -61,7 +66,9 @@ pub fn try_patch_tmux_update_environment(
     let old_value = match tmux_show_update_environment() {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("⚠️  读取 tmux update-environment 失败，跳过 tmux 环境同步: {e}");
+            if !quiet {
+                eprintln!("⚠️  读取 tmux update-environment 失败，跳过 tmux 环境同步: {e}");
+            }
             return None;
         }
     };
@@ -72,11 +79,15 @@ pub fn try_patch_tmux_update_environment(
     }
 
     if let Err(e) = tmux_set_update_environment(&merged) {
-        eprintln!("⚠️  更新 tmux update-environment 失败，跳过 tmux 环境同步: {e}");
+        if !quiet {
+            eprintln!("⚠️  更新 tmux update-environment 失败，跳过 tmux 环境同步: {e}");
+        }
         return None;
     }
 
-    println!("🧷 已为 tmux 临时启用 Claude 环境变量同步");
+    if !quiet {
+        println!("🧷 已为 tmux 临时启用 Claude 环境变量同步");
+    }
     Some(TmuxUpdateEnvGuard { old_value })
 }
 

@@ -5,6 +5,7 @@ use chrono::Local;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct MigrationReport {
     pub backup_path: PathBuf,
@@ -83,6 +84,7 @@ fn map_json_to_toml(
     (tgt, pairs)
 }
 
+#[allow(dead_code)]
 fn merge_into_existing(
     mut existing: TomlConfig,
     pairs: &[(String, TomlProfile, Option<String>)],
@@ -126,7 +128,7 @@ pub fn auto_migrate_if_needed() -> AppResult<()> {
 
     if toml_exists {
         println!(
-            "⚠️ 检测到同时存在 config.toml 与 config.json。为避免覆盖，请手动迁移：运行 'ccode config merge' 或删除旧的 config.json。当前将继续使用 TOML。"
+            "⚠️ 检测到同时存在 config.toml 与 config.json。为避免覆盖，请删除旧的 config.json 或手动合并。当前将继续使用 TOML。"
         );
         return Ok(());
     }
@@ -162,6 +164,7 @@ pub fn auto_migrate_if_needed() -> AppResult<()> {
 }
 
 /// 手动迁移/合并：`ccode config merge`
+#[allow(dead_code)]
 pub fn manual_merge() -> AppResult<MigrationReport> {
     let json_path = json_cfg::Config::get_config_path()?;
     let toml_path = TomlConfig::get_config_path()?;

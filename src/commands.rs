@@ -1,5 +1,4 @@
 use crate::error::{AppError, AppResult};
-use crate::migrate;
 use crate::tmux_env::{self, TmuxEnvMode};
 use crate::toml_config::{TomlConfig, TomlProfile, load_token_from_env};
 use std::io::{self, Write};
@@ -20,193 +19,7 @@ fn read_optional_input(prompt: &str) -> AppResult<Option<String>> {
 }
 
 /// 列出配置
-pub fn cmd_list_with_group(_group: Option<String>) -> AppResult<()> {
-    cmd_list_toml()
-}
-
-/// 添加配置
-pub fn cmd_add_with_group(name: String, _group: Option<String>) -> AppResult<()> {
-    cmd_add_toml(name)
-}
-
-/// 设置默认配置
-pub fn cmd_use_with_group(name: String, _group: Option<String>) -> AppResult<()> {
-    cmd_use_toml(name)
-}
-
-/// 运行配置
-pub fn cmd_run_with_group(
-    name: Option<String>,
-    _group: Option<String>,
-    tmux_env: TmuxEnvMode,
-    claude_args: Vec<String>,
-) -> AppResult<()> {
-    cmd_run_toml(name, tmux_env, claude_args)
-}
-
-/// 删除配置
-pub fn cmd_remove_with_group(name: String, _group: Option<String>) -> AppResult<()> {
-    cmd_remove_toml(name)
-}
-
-/// 主动触发 JSON→TOML 迁移/合并
-pub fn cmd_config_merge() -> AppResult<()> {
-    let report = migrate::manual_merge()?;
-
-    println!(
-        "✅ 迁移完成：共 {}，迁移 {}，跳过 {}",
-        report.profiles_total, report.profiles_migrated, report.profiles_skipped
-    );
-    if report.created_toml {
-        println!("🆕 已创建 config.toml");
-    }
-    if report.merged_into_existing {
-        println!("🔗 已合并到现有 config.toml（同名跳过）");
-    }
-    if let Some(d) = report.default_set {
-        println!("🎯 默认配置: {}", d);
-    }
-    println!("🗄️  已备份旧 JSON: {}", report.backup_path.display());
-    println!("🧹 已移除 config.json");
-    Ok(())
-}
-
-/// 使用 TOML 新格式运行 claude
-pub fn cmd_run_toml(
-    name: Option<String>,
-    tmux_env: TmuxEnvMode,
-    claude_args: Vec<String>,
-) -> AppResult<()> {
-    let config = TomlConfig::load()?;
-    let toml_path = TomlConfig::get_config_path()?;
-    let (profile_name, profile) = config.get_profile(name.as_deref())?;
-
-    // 读取 token：优先同目录 .env，其次系统环境
-    let token = load_token_from_env(&toml_path, &profile.env_key)?;
-
-    println!("🚀 使用 TOML 配置 '{profile_name}' 启动 claude...");
-    println!("📍 API URL: {}", profile.base_url);
-    if let Some(m) = &profile.model {
-        println!("🤖 默认模型: {}", m);
-    }
-    if profile.model_haiku.is_some()
-        || profile.model_sonnet.is_some()
-        || profile.model_opus.is_some()
-    {
-        println!(
-            "🧩 家族模型: {}{}{}",
-            profile.model_haiku.as_deref().unwrap_or("-"),
-            if profile.model_sonnet.is_some() {
-                " | "
-            } else {
-                ""
-            },
-            profile.model_sonnet.as_deref().unwrap_or("")
-        );
-    }
-
-    let _tmux_update_guard = tmux_env::try_patch_tmux_update_environment(tmux_env, &claude_args);
-
-    // 设置需要注入到 tmux 全局的环境变量
-    let mut env_vars = vec![
-        ("ANTHROPIC_AUTH_TOKEN".to_string(), token.clone()),
-        ("ANTHROPIC_BASE_URL".to_string(), profile.base_url.clone()),
-    ];
-    if let Some(m) = &profile.model {
-        env_vars.push(("ANTHROPIC_MODEL".to_string(), m.clone()));
-    }
-    if let Some(m) = &profile.model_haiku {
-        env_vars.push(("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), m.clone()));
-        env_vars.push(("ANTHROPIC_SMALL_FAST_MODEL".to_string(), m.clone()));
-    }
-    // opus/sonnet 回退逻辑：未指定则使用默认模型
-    let opus_model = profile.model_opus.as_ref().or(profile.model.as_ref());
-    if let Some(m) = opus_model {
-        env_vars.push(("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), m.clone()));
-    }
-    let sonnet_model = profile.model_sonnet.as_ref().or(profile.model.as_ref());
-    if let Some(m) = sonnet_model {
-        env_vars.push(("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), m.clone()));
-    }
-    if let Some(max) = &profile.max_tokens {
-        env_vars.push(("CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string(), max.clone()));
-    }
-
-    let _tmux_global_env_guard = tmux_env::try_set_tmux_global_env(&env_vars);
-
-    let mut cmd = Command::new("claude");
-    // 必填环境变量
-    cmd.env("ANTHROPIC_AUTH_TOKEN", &token);
-    cmd.env("ANTHROPIC_BASE_URL", &profile.base_url);
-
-    // 新映射的模型变量
-    if let Some(m) = &profile.model {
-        cmd.env("ANTHROPIC_MODEL", m);
-    }
-    if let Some(m) = &profile.model_haiku {
-        // 新变量
-        cmd.env("ANTHROPIC_DEFAULT_HAIKU_MODEL", m);
-        // 兼容变量（已弃用，但为向后兼容继续设置）
-        cmd.env("ANTHROPIC_SMALL_FAST_MODEL", m);
-    }
-    // opus/sonnet 回退逻辑：未指定则使用默认模型
-    let opus_model_fallback = profile.model_opus.as_ref().or(profile.model.as_ref());
-    if let Some(m) = opus_model_fallback {
-        cmd.env("ANTHROPIC_DEFAULT_OPUS_MODEL", m);
-    }
-    let sonnet_model_fallback = profile.model_sonnet.as_ref().or(profile.model.as_ref());
-    if let Some(m) = sonnet_model_fallback {
-        cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
-    }
-    if let Some(max) = &profile.max_tokens {
-        cmd.env("CLAUDE_CODE_MAX_OUTPUT_TOKENS", max);
-    }
-
-    if !claude_args.is_empty() {
-        cmd.args(&claude_args);
-        println!("📄 透传参数: {}", claude_args.join(" "));
-    }
-
-    match cmd.status() {
-        Ok(status) => {
-            if status.success() {
-                println!("✅ claude 程序正常退出");
-            } else {
-                println!("⚠️  claude 程序异常退出，退出码: {:?}", status.code());
-            }
-        }
-        Err(e) => {
-            if e.kind() == io::ErrorKind::NotFound {
-                return Err(AppError::CommandExecution(
-                    "找不到 'claude' 程序，请确保 claude 已安装并在 PATH 中".to_string(),
-                ));
-            } else {
-                return Err(AppError::CommandExecution(format!("执行 claude 失败: {e}")));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// 清理 tmux 中 ccode 注入相关环境变量
-pub fn cmd_tmux_clear_env() -> AppResult<()> {
-    let report = tmux_env::clear_tmux_env_vars()?;
-    if !report.had_server {
-        println!("ℹ️ 未检测到 tmux server，无需清理");
-        return Ok(());
-    }
-
-    println!(
-        "🧹 已清理 tmux 环境变量（会话数: {}）",
-        report.session_count
-    );
-    println!("ℹ️ 仅影响后续新建 pane/window，不影响已运行进程");
-    Ok(())
-}
-
-/// 列出 TOML 配置
-pub fn cmd_list_toml() -> AppResult<()> {
+pub fn cmd_list() -> AppResult<()> {
     let config = match TomlConfig::load() {
         Ok(c) => c,
         Err(AppError::ConfigNotFound) => {
@@ -256,8 +69,8 @@ pub fn cmd_list_toml() -> AppResult<()> {
     Ok(())
 }
 
-/// 添加 TOML 配置（交互式）
-pub fn cmd_add_toml(name: String) -> AppResult<()> {
+/// 添加配置（交互式）
+pub fn cmd_add(name: String) -> AppResult<()> {
     let mut config = TomlConfig::load_or_default()?;
     if config.profiles.contains_key(&name) {
         return Err(AppError::Config(format!("配置 '{name}' 已存在")));
@@ -317,8 +130,8 @@ pub fn cmd_add_toml(name: String) -> AppResult<()> {
     Ok(())
 }
 
-/// 设置 TOML 默认配置
-pub fn cmd_use_toml(name: String) -> AppResult<()> {
+/// 设置默认配置
+pub fn cmd_use(name: String) -> AppResult<()> {
     let mut config = TomlConfig::load_or_default()?;
     config.set_default(&name)?;
     config.save()?;
@@ -326,8 +139,8 @@ pub fn cmd_use_toml(name: String) -> AppResult<()> {
     Ok(())
 }
 
-/// 删除 TOML 配置
-pub fn cmd_remove_toml(name: String) -> AppResult<()> {
+/// 删除配置
+pub fn cmd_remove(name: String) -> AppResult<()> {
     let mut config = TomlConfig::load_or_default()?;
     print!("⚠️  确定要删除配置 '{name}' 吗？(y/N): ");
     io::stdout().flush()?;
@@ -345,7 +158,152 @@ pub fn cmd_remove_toml(name: String) -> AppResult<()> {
     if let Some(d) = &config.default {
         println!("🎯 当前默认配置: {d}");
     } else {
-        println!("📋 暂无默认配置，可通过 'ccode use <name>' 设置");
+        println!("📋 暂无默认配置，可通过 'ccode profile use <name>' 设置");
     }
+    Ok(())
+}
+
+/// 运行 claude（核心函数）
+pub fn cmd_run(
+    name: Option<String>,
+    tmux_env: TmuxEnvMode,
+    claude_args: Vec<String>,
+    quiet: bool,
+) -> AppResult<()> {
+    let config = TomlConfig::load()?;
+    let toml_path = TomlConfig::get_config_path()?;
+    let (profile_name, profile) = config.get_profile(name.as_deref())?;
+
+    // 读取 token：优先同目录 .env，其次系统环境
+    let token = load_token_from_env(&toml_path, &profile.env_key)?;
+
+    if !quiet {
+        println!("🚀 使用 TOML 配置 '{profile_name}' 启动 claude...");
+        println!("📍 API URL: {}", profile.base_url);
+        if let Some(m) = &profile.model {
+            println!("🤖 默认模型: {}", m);
+        }
+        if profile.model_haiku.is_some()
+            || profile.model_sonnet.is_some()
+            || profile.model_opus.is_some()
+        {
+            println!(
+                "🧩 家族模型: {}{}{}",
+                profile.model_haiku.as_deref().unwrap_or("-"),
+                if profile.model_sonnet.is_some() {
+                    " | "
+                } else {
+                    ""
+                },
+                profile.model_sonnet.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    let _tmux_update_guard =
+        tmux_env::try_patch_tmux_update_environment(tmux_env, &claude_args, quiet);
+
+    // 设置需要注入到 tmux 全局的环境变量
+    let mut env_vars = vec![
+        ("ANTHROPIC_AUTH_TOKEN".to_string(), token.clone()),
+        ("ANTHROPIC_BASE_URL".to_string(), profile.base_url.clone()),
+    ];
+    if let Some(m) = &profile.model {
+        env_vars.push(("ANTHROPIC_MODEL".to_string(), m.clone()));
+    }
+    if let Some(m) = &profile.model_haiku {
+        env_vars.push(("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), m.clone()));
+        env_vars.push(("ANTHROPIC_SMALL_FAST_MODEL".to_string(), m.clone()));
+    }
+    // opus/sonnet 回退逻辑：未指定则使用默认模型
+    let opus_model = profile.model_opus.as_ref().or(profile.model.as_ref());
+    if let Some(m) = opus_model {
+        env_vars.push(("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), m.clone()));
+    }
+    let sonnet_model = profile.model_sonnet.as_ref().or(profile.model.as_ref());
+    if let Some(m) = sonnet_model {
+        env_vars.push(("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), m.clone()));
+    }
+    if let Some(max) = &profile.max_tokens {
+        env_vars.push(("CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string(), max.clone()));
+    }
+
+    let _tmux_global_env_guard = tmux_env::try_set_tmux_global_env(&env_vars);
+
+    let mut cmd = Command::new("claude");
+    // 必填环境变量
+    cmd.env("ANTHROPIC_AUTH_TOKEN", &token);
+    cmd.env("ANTHROPIC_BASE_URL", &profile.base_url);
+
+    // 新映射的模型变量
+    if let Some(m) = &profile.model {
+        cmd.env("ANTHROPIC_MODEL", m);
+    }
+    if let Some(m) = &profile.model_haiku {
+        // 新变量
+        cmd.env("ANTHROPIC_DEFAULT_HAIKU_MODEL", m);
+        // 兼容变量（已弃用，但为向后兼容继续设置）
+        cmd.env("ANTHROPIC_SMALL_FAST_MODEL", m);
+    }
+    // opus/sonnet 回退逻辑：未指定则使用默认模型
+    let opus_model_fallback = profile.model_opus.as_ref().or(profile.model.as_ref());
+    if let Some(m) = opus_model_fallback {
+        cmd.env("ANTHROPIC_DEFAULT_OPUS_MODEL", m);
+    }
+    let sonnet_model_fallback = profile.model_sonnet.as_ref().or(profile.model.as_ref());
+    if let Some(m) = sonnet_model_fallback {
+        cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
+    }
+    if let Some(max) = &profile.max_tokens {
+        cmd.env("CLAUDE_CODE_MAX_OUTPUT_TOKENS", max);
+    }
+
+    if !quiet && !claude_args.is_empty() {
+        cmd.args(&claude_args);
+        println!("📄 透传参数: {}", claude_args.join(" "));
+    } else if !claude_args.is_empty() {
+        cmd.args(&claude_args);
+    }
+
+    match cmd.status() {
+        Ok(status) => {
+            if !quiet {
+                if status.success() {
+                    println!("✅ claude 程序正常退出");
+                } else {
+                    println!("⚠️  claude 程序异常退出，退出码: {:?}", status.code());
+                }
+            }
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(1));
+            }
+        }
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                return Err(AppError::CommandExecution(
+                    "找不到 'claude' 程序，请确保 claude 已安装并在 PATH 中".to_string(),
+                ));
+            } else {
+                return Err(AppError::CommandExecution(format!("执行 claude 失败: {e}")));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// 清理 tmux 中 ccode 注入相关环境变量
+pub fn cmd_tmux_clear_env() -> AppResult<()> {
+    let report = tmux_env::clear_tmux_env_vars()?;
+    if !report.had_server {
+        println!("ℹ️ 未检测到 tmux server，无需清理");
+        return Ok(());
+    }
+
+    println!(
+        "🧹 已清理 tmux 环境变量（会话数: {}）",
+        report.session_count
+    );
+    println!("ℹ️ 仅影响后续新建 pane/window，不影响已运行进程");
     Ok(())
 }
