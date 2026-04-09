@@ -115,14 +115,17 @@ anyrouter_key="sk-yyy..."
 
 #### 使用 TOML 配置
 ```bash
-# 列出配置（自动识别 TOML）
-ccode list
+# 列出配置
+ccode profile list
 
 # 运行（未指定 name 时使用 default）
-ccode run                      # 使用 default
+ccode                        # 无参数，使用默认 profile
+ccode <claude_args>          # 直接透传参数到 claude
 ccode run minimax-m2         # 指定 profile
+ccode profile run minimax-m2 # 等同于上方
 
 # 透传参数
+ccode --version              # 显示 ccode 版本（quiet 模式）
 ccode run minimax-m2 --version
 ccode run minimax-m2 -- --help
 
@@ -132,13 +135,18 @@ ccode run minimax-m2 --tmux-env auto -- --worktree my-branch --tmux
 
 #### 添加配置（交互式）
 ```bash
-ccode add myapi
+ccode profile add myapi
 # 按提示依次输入：
 # 1) ANTHROPIC_BASE_URL（如 https://api.anthropic.com）
 # 2) ANTHROPIC_AUTH_TOKEN（密钥值，工具会保存到配置目录 .env）
 ```
 
-`ccode add/use/remove` 支持直接写入 `config.toml` 并使用同级 `.env` 保存密钥。
+#### 其他 profile 管理命令
+```bash
+ccode profile use <name>        # 设置默认配置
+ccode profile remove <name>     # 删除配置
+ccode profile clear-env         # 清理 tmux 中 ccode 相关环境变量
+```
 
 <!-- Router/Provider 功能已移除 -->
 
@@ -199,44 +207,65 @@ mv ~/.config/ccode/config.json.bak-YYYYMMDD-HHMMSS ~/.config/ccode/config.json
 
 ### 迁移后自检
 ```bash
-ccode list               # 检查 profile 与默认项
+ccode profile list           # 检查 profile 与默认项
 cat ~/.config/ccode/config.toml | sed -n '1,120p'
 cat ~/.config/ccode/.env | sed -n '1,80p'
 ccode run demo --version
 ```
+
+### ⚠️ 命令结构变更说明（v0.5.0）
+
+v0.5.0 引入了新的命令结构以提升用户体验。旧的扁平式命令已升级为分层式：
+
+| 旧命令（v0.4.x） | 新命令（v0.5.0） | 说明 |
+|------------------|------------------|------|
+| `ccode list` | `ccode profile list` | 列出配置 |
+| `ccode add <name>` | `ccode profile add <name>` | 添加配置 |
+| `ccode use <name>` | `ccode profile use <name>` | 设置默认配置 |
+| `ccode remove <name>` | `ccode profile remove <name>` | 删除配置 |
+| `ccode run` | `ccode` 或 `ccode profile run` | 无参数直接启动 |
+| `ccode tmux clear-env` | `ccode profile clear-env` | 清理 tmux 环境 |
+| `ccode config merge` | - | 手动迁移功能已移除 |
+
+**重要提示**：
+- 使用旧命令时会显示友好的迁移提示
+- 直接使用 `ccode` 即可启动默认 profile（推荐新用法）
+- `ccode` 后直接跟参数会透传给 claude（如 `ccode --version`）
+
+### 手动迁移（已移除）
+
+自 v0.5.0 起，`ccode config merge` 手动迁移功能已移除。如需从旧版 JSON 迁移：
+- 保留旧版用户可使用 v0.4.x 版本手动迁移后再升级
+- 新用户建议直接使用 TOML 格式创建配置
 
 ## 📋 命令参考
 
 ### 🔄 命令
 
 ```bash
-# 列出配置（使用 config.toml）
-ccode list
+# 配置管理（profile 子命令）
+ccode profile list                    # 列出所有配置
+ccode profile add <name>              # 添加新配置（交互式）
+ccode profile use <name>              # 设置默认配置
+ccode profile remove <name>           # 删除配置
 
-# 添加/设置默认/删除（写入 config.toml）
-ccode add <name>
-ccode use <name>
-ccode remove <name>
-
-# 启动 claude（根据 config.toml 映射环境变量）
-ccode run [name] [--tmux-env <auto|always|never>] [<claude_args>...]
+# 启动 claude
+ccode                                 # 无参数，使用默认 profile（quiet 模式）
+ccode <claude_args>                   # 直接启动并透传参数
+ccode profile run [name]              # 明确指定 profile 启动
+ccode profile run [name] --tmux-env <auto|always|never>  # 指定 tmux 同步策略
 
 # 示例：
-# ccode run myapi --version                    # 直接透传
-# ccode run myapi code                         # 透传子命令
-# ccode run myapi -- --help                    # 使用 -- 分隔符避免冲突
-# ccode run myapi --tmux-env always -- --worktree feat-a --tmux
+ccode profile run myapi --version                      # 直接透传
+ccode profile run myapi code                           # 透传子命令
+ccode profile run myapi -- --help                      # 使用 -- 分隔符避免冲突
+ccode profile run myapi --tmux-env always -- --worktree feat-a --tmux
 
-# 清理 tmux 中 ccode 相关环境变量
-ccode tmux clear-env
-
-# 删除配置
-ccode remove <name> [--group direct]
+# tmux 环境变量清理
+ccode profile clear-env               # 清理 tmux 中 ccode 相关环境变量
 ```
 
-<!-- Router/Provider 快捷命令已移除 -->
-
-### 📋 ccode list 输出字段说明（v0.3.0）
+### 📋 输出字段说明（v0.5.0）
 - `base_url`：目标 API 基础地址
 - `env_key`：从同级 `~/.config/ccode/.env` 或系统环境读取的变量名
 - `model` / `model_haiku` / `model_sonnet` / `model_opus`：模型或家族模型
@@ -294,6 +323,13 @@ ccode run myapi --tmux-env never -- --worktree team-a --tmux
 <!-- 架构图（CCR 集成）已移除 -->
 
 ## 📝 版本变更
+
+### v0.5.0（2026-04-09）
+- **变更（破坏性）**：重构命令结构，引入 `profile` 子命令统一管理配置。
+- **废弃命令**：`list`/`add`/`use`/`remove`/`config`/`tmux` 已废弃，使用时会显示友好提示。
+- **新增**：无参数直接启动（`ccode`）、quiet 模式（减少冗余输出）、废弃命令检测与提示。
+- **优化**：移除 `--group` 参数和手动迁移功能、标记死代码、升级主要依赖、简化命令实现。
+- **文档**：更新命令参考和版本变更说明。
 
 ### v0.4.0（2026-03-01）
 - 新增：`ccode run --tmux-env <auto|always|never>`，修复 `claude --tmux`/Team 场景后续实例可能丢失 `ANTHROPIC_*` 环境变量的问题。
@@ -442,7 +478,7 @@ cargo build --release
 
 ---
 
-**最后更新**: 2025-10-29 | **架构版本**: v0.3.0（配置管理工具）
+**最后更新**: 2026-04-09 | **架构版本**: v0.5.0（配置管理工具）
 [必填项说明]
 - 每个 profile 必填：`name`、`base_url`、`env_key`
 - 其他字段（`model*`、`max_tokens`、`comment`）均为可选

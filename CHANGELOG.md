@@ -2,6 +2,32 @@
 
 本项目遵循 Keep a Changelog 的书写方式，并尽量遵循 语义化版本号（SemVer）。
 
+## [v0.5.0] - 2026-04-09
+
+重要改动
+- 变更（破坏性）
+  - 重构命令结构，引入 `profile` 子命令统一管理配置。
+  - 旧命令 `list`/`add`/`use`/`remove`/`config`/`tmux` 已废弃，使用时会显示友好提示。
+  - 新命令结构：`ccode profile <list|add|use|remove|run|clear-env>`。
+
+- 新增
+  - 无参数直接启动：`ccode` 或 `ccode <claude_args>` 使用默认 profile。
+  - 支持 `--help`/-h/-v/-V 等选项时输出 ccode 版本信息后再透传给 claude。
+  - 新增 `quiet` 模式，减少冗余输出（无参数启动默认开启 quiet）。
+  - 废弃命令检测与友好提示，帮助用户快速迁移到新命令。
+
+- 变更
+  - 移除 `--group` 参数及相关遗留代码（仅 Direct 模式）。
+  - 移除 `ccode config merge` 手动迁移功能（自动迁移已足够）。
+  - 标记死代码避免编译警告（`MigrationReport`、`merge_into_existing`、`manual_merge`）。
+  - 升级主要依赖：clap 4.6.0、serde_json 1.0.149、chrono 0.4.44、sysinfo 0.38.4 等。
+  - 版本从 v0.3.0 升级至 v0.5.0。
+
+- 优化
+  - 简化命令实现，移除间接函数层。
+  - 更新错误提示中的命令用法为新的 `ccode profile <子命令>` 格式。
+  - 提升代码质量，减少克隆和不必要的中间变量。
+
 ## [v0.4.1] - 2026-03-01
 
 重要改动
