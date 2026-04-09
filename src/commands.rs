@@ -25,11 +25,10 @@ const RELEVANT_ENV_VARS: &[&str] = &[
 fn get_settings_json_path(claude_args: &[String]) -> PathBuf {
     // 检查 claude_args 中是否有 --settings 参数
     for i in 0..claude_args.len().saturating_sub(1) {
-        if claude_args[i] == "--settings" {
-            if let Some(path) = claude_args.get(i + 1) {
+        if claude_args[i] == "--settings"
+            && let Some(path) = claude_args.get(i + 1) {
                 return PathBuf::from(path);
             }
-        }
     }
 
     // 默认位置
