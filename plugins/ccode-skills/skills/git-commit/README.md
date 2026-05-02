@@ -191,6 +191,10 @@ git add src/main.rs src/config.rs
 
 ## 🔗 相关资源
 
-- 详细工作流程：查看 `SKILL.md`
-- 提交规范参考：查看 `REFERENCE.md`
+- 完整工作流：查看 [SKILL.md](SKILL.md)
+- 规范参考（Conventional Commits / Angular / Gitmoji / FAQ）：查看 [references/commit-conventions.md](references/commit-conventions.md)
+- Memory 配置模板：查看 [references/memory-templates.md](references/memory-templates.md)
+- 安全红线：查看 [references/safety-rules.md](references/safety-rules.md)
+- 端到端样例：查看 [examples/commit-workflow.md](examples/commit-workflow.md)
+- 预检脚本：查看 [scripts/precheck.sh](scripts/precheck.sh)
 - [Conventional Commits 规范](https://www.conventionalcommits.org/)

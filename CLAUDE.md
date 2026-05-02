@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-版本: v0.5.0 | 更新日期: 2026-04-09
+版本: v0.5.0 | 更新日期: 2026-05-02
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -18,14 +18,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 通过 `config.toml` 指定 `base_url` 与 `env_key`（从同级 `.env` 或系统环境读取 token）。
 - 可选配置 `model` 与家族模型：`model_haiku`、`model_sonnet`、`model_opus`（对应 `ANTHROPIC_DEFAULT_*` 环境变量）。
 - 兼容性：当 `model_haiku` 存在时，同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 与（兼容）`ANTHROPIC_SMALL_FAST_MODEL` 两个环境变量。
+- 顶层裸 `ccode`（无参数或后跟 `claude` 参数）直接使用默认 profile 启动 `claude`；profile 管理全部归入 `ccode profile <子命令>`。
 - 支持参数透传到 `claude` 命令。
 
 ### 🔌 插件系统概览
 
 - **ccode-notify**：桌面通知插件（Notification/Stop hooks）
-- **ccode-skills**：技能集合插件
-  - `codex-ai`：通过 Codex CLI 进行代码审查、算法设计和架构分析
+- **ccode-skills**：技能集合插件（v1.0.1）
+  - `codex-ai`：通过 Codex MCP 工具进行代码审查、算法设计和架构分析
   - `git-commit`：智能 Git 提交助手
+- **codex-mcp-tool**：外部 MCP 插件（位于 `external_plugins/codex-mcp-tool`），为 `codex-ai` 提供 `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex` / `codex-reply` 等工具
 
 ### ⚠️ 重要说明
 
@@ -75,7 +77,8 @@ cargo run -- <subcommand>
 ### 技术栈
 - **语言**：Rust 2024 Edition (最低要求 Rust 1.70+)
 - **CLI框架**：clap 4.x (derive API)
-- **序列化**：serde + serde_json
+- **序列化**：serde + serde_json + `toml`（运行时配置）
+- **环境加载**：`dotenvy`（读取 `~/.config/ccode/.env`）
 - **系统信息**：sysinfo
 - **目录处理**：dirs (跨平台)
 - **时间处理**：chrono
@@ -85,11 +88,11 @@ cargo run -- <subcommand>
 
 ```
 src/
-├── main.rs          # CLI入口，命令路由和参数解析（包含启动自动迁移钩子）
-├── commands.rs      # 所有命令的具体实现逻辑（含 ccode config merge）
+├── main.rs          # CLI入口，命令路由（`ccode profile` 子命令 + 顶层透传 + 启动自动迁移钩子）
+├── commands.rs      # 所有命令的具体实现逻辑（list/add/use/run/remove/clear-env，含环境冲突检测）
 ├── toml_config.rs   # TOML 格式配置与 .env 读取/持久化
 ├── tmux_env.rs      # tmux 环境同步与清理（Team/--tmux 场景）
-├── migrate.rs       # JSON→TOML 迁移/合并实现（自动/手动）
+├── migrate.rs       # JSON→TOML 自动迁移实现（启动时触发）
 ├── config.rs        # 旧 JSON 结构（仅迁移使用）
 ├── error.rs         # 统一错误处理
 └── lib.rs           # 库入口，模块导出
@@ -111,37 +114,60 @@ plugins/
 │       └── notify-stop.py         # 会话停止提醒脚本
 │
 └── ccode-skills/              # 技能集合插件
-    ├── .claude-plugin/
-    │   └── plugin.json        # 插件元数据
-    ├── codex-ai/              # Codex CLI 协作技能
-    │   ├── SKILL.md           # 技能定义（Claude Code 读取）
-    │   ├── README.md          # 快速入门
-    │   └── REFERENCE.md       # 完整参考
-    │
-    └── git-commit/            # Git 提交助手技能
-        ├── SKILL.md           # 技能定义
-        ├── README.md          # 快速入门
-        └── REFERENCE.md       # 完整参考
+    └── skills/
+        ├── codex-ai/          # Codex MCP 协作技能
+        │   ├── SKILL.md       # 技能定义（Claude Code 读取，保持精简）
+        │   ├── README.md      # 面向使用者的快速入门
+        │   ├── references/    # 完整参考（api-reference.md / quick-reference.md）
+        │   ├── examples/      # 端到端示例（review-workflow.md）
+        │   └── scripts/       # 辅助脚本（check-codex-mcp.sh）
+        │
+        └── git-commit/        # Git 提交助手技能
+            ├── SKILL.md       # 技能定义
+            ├── README.md      # 面向使用者的快速入门
+            ├── references/    # 规范/模板/安全红线（commit-conventions.md 等）
+            ├── examples/      # 端到端示例（commit-workflow.md）
+            └── scripts/       # 预检脚本（precheck.sh）
+
+external_plugins/
+└── codex-mcp-tool/            # Codex MCP 外部插件（通过 marketplace.json 挂载）
 ```
 
 ### 插件注册
 
-插件通过 `.claude-plugin/marketplace.json` 注册：
+插件通过 `.claude-plugin/marketplace.json` 注册（节选实际结构）：
 
 ```json
 {
+  "name": "ccode-plugins",
   "plugins": [
     {
       "name": "ccode-notify",
-      "path": "plugins/ccode-notify"
+      "version": "1.0.0",
+      "source": "./plugins/ccode-notify",
+      "category": "tools"
     },
     {
       "name": "ccode-skills",
-      "path": "plugins/ccode-skills"
+      "version": "1.0.1",
+      "source": "./plugins/ccode-skills",
+      "strict": false,
+      "skills": [
+        "./skills/codex-ai",
+        "./skills/git-commit"
+      ]
+    },
+    {
+      "name": "codex-mcp-tool",
+      "version": "1.0.0",
+      "source": "./external_plugins/codex-mcp-tool",
+      "category": "tools"
     }
   ]
 }
 ```
+
+注意：`ccode-skills` 使用 `skills` 字段显式列出子技能路径，而非依赖自动发现。
 
 ### Hooks 插件：ccode-notify
 
@@ -170,7 +196,7 @@ sudo dnf install libnotify
 
 #### 技能 1：codex-ai
 
-**用途**：通过 Bash 直接调用 Codex CLI 处理复杂技术任务
+**用途**：通过 MCP 工具调用 Codex 处理复杂技术任务（不再使用 Bash 直接调用 `codex` CLI）。
 
 **触发场景**：
 - 代码审查（review、code review）
@@ -178,21 +204,27 @@ sudo dnf install libnotify
 - 架构分析与评审（系统扩展、架构重构）
 - 性能优化（瓶颈分析、性能调优）
 
-**核心命令**：
-```bash
-# 代码审查
-codex review --uncommitted -m gpt-5.3-codex -c 'model_reasoning_effort="xhigh"'
+**MCP 工具调用**（由 `external_plugins/codex-mcp-tool` 提供）：
+- `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex`：启动新会话，返回 `threadId`（或旧字段 `session_id`）
+- `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply`：携带 `threadId` 续聊
 
-# 简单任务（代码审查、简单重构）
-codex exec -m gpt-5.3-codex -c 'model_reasoning_effort="high"' "<任务描述>"
-
-# 复杂任务（算法设计、架构评审、性能优化）
-codex exec -m gpt-5.4 -c 'model_reasoning_effort="xhigh"' "<任务描述>"
+**调用示例**（开启新会话）：
+```json
+{
+  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "parameters": {
+    "model": "gpt-5.3-codex",
+    "sandbox": "workspace-write",
+    "approval-policy": "on-failure",
+    "prompt": "review the uncommitted diff for correctness and style"
+  }
+}
 ```
 
 **模型选择**：
 - **gpt-5.3-codex**：简单任务（代码审查、简单重构、文档生成）
 - **gpt-5.4**：复杂任务（复杂算法、架构评审、性能优化、多约束问题）
+- 通过 `config` 字段可进一步调整推理强度，如 `{"model_reasoning_effort": "xhigh"}`
 
 #### 技能 2：git-commit
 
@@ -219,21 +251,40 @@ project:<repo>:commit-convention
 
 - 运行时配置：`~/.config/ccode/config.toml`（同级 `~/.config/ccode/.env` 保存密钥）。
 - 迁移策略：
-  - 自动迁移：存在 `config.json` 且不存在 `config.toml` 时，启动任意命令后自动迁移并备份，成功后移除 `config.json`。
-  - 手动迁移：当两者并存时，执行 `ccode config merge` 进行合并（同名 profile 跳过），成功后移除 `config.json`。
+  - 自动迁移：存在 `config.json` 且不存在 `config.toml` 时，启动任意 `ccode` 命令都会触发 `migrate::auto_migrate_if_needed()`，迁移并备份，成功后移除 `config.json`。
   - 备份路径：`~/.config/ccode/config.json.bak-YYYYMMDD-HHMMSS`；失败不会删除 JSON，可手动回滚。
-  - JSON 不再作为运行时来源，仅用于迁移。
+  - JSON 不再作为运行时来源，仅用于迁移；旧版 `ccode config merge` 子命令已废弃。
 
 ## 命令组织模式
 
-### 命令一览（仅 Direct）
-- `list [--group direct]` - 列出配置
-- `add <name> [--group direct]` - 添加配置
-- `use <name> [--group direct]` - 设置默认配置
-- `run [name] [--group direct] [--tmux-env auto|always|never] [<claude_args>...]` - 启动并透传参数到 `claude`
-- `remove <name> [--group direct]` - 删除配置
-- `config merge` - 将旧版 `config.json` 合并/迁移到 `config.toml`（成功后移除 JSON）
-- `tmux clear-env` - 清理 tmux 中 ccode 相关环境变量
+### 顶层入口
+
+| 调用形式 | 行为 |
+| --- | --- |
+| `ccode` | 使用默认 profile 直接启动 `claude`（无参） |
+| `ccode <claude_args...>` | 使用默认 profile 启动 `claude`，尾随参数透传 |
+| `ccode profile <子命令>` | 进入 profile 管理命名空间（由 clap 解析） |
+| `ccode --help` / `-h` | 先打印 ccode 简介，再透传 `--help` 给 `claude` |
+| `ccode --version` / `-v` / `-V` | 先打印 `ccode vX.Y.Z`，再透传给 `claude` |
+
+### `ccode profile` 子命令一览（仅 Direct）
+
+- `ccode profile list` - 列出所有可用配置
+- `ccode profile add <name>` - 交互式添加新配置
+- `ccode profile use <name>` - 设置默认配置
+- `ccode profile remove <name>` - 删除配置
+- `ccode profile run [name] [--tmux-env auto|always|never] [-- <claude_args>...]` - 启动并透传参数到 `claude`
+- `ccode profile clear-env` - 清理 tmux 中 ccode 相关环境变量
+
+### 废弃命令兼容提示
+
+以下旧的顶层命令已废弃，执行时会打印迁移提示并以退出码 1 结束（来源：`src/main.rs` 中 `DEPRECATED_COMMANDS`）：
+
+| 旧命令 | 新写法 |
+| --- | --- |
+| `ccode list` / `add` / `use` / `remove` / `run` | `ccode profile <同名子命令>` |
+| `ccode tmux ...` | `ccode profile clear-env` |
+| `ccode config ...` | 已取消，JSON→TOML 迁移在每次启动时自动执行 |
 
 ## Direct 模式环境变量配置
 
@@ -262,14 +313,14 @@ project:<repo>:commit-convention
 
 #### 基础配置（仅必需变量）
 ```bash
-ccode add basic-api
+ccode profile add basic-api
 # 输入Token和URL，跳过可选字段
 # 使用claude的默认模型选择策略
 ```
 
 #### 精确模型控制（包含可选变量）
 ```bash
-ccode add precise-api
+ccode profile add precise-api
 # 输入Token和URL
 # 设置主模型：claude-3-5-sonnet-20241022
 # 设置快速模型：claude-3-haiku-20240307
@@ -286,46 +337,44 @@ ccode add precise-api
 ## 参数透传功能
 
 ### 概述
-`ccode` 支持将额外参数透传给 `claude` 命令，该功能仅在 **Direct 模式** 下可用。
+`ccode` 支持把尾随参数透传给 `claude` 命令。两种入口均支持：
+
+1. **顶层 `ccode <claude_args>`**：使用默认 profile，直接透传（最省事的日常用法）
+2. **`ccode profile run [name] -- <claude_args>`**：指定 profile 并透传（需要切 profile 或传递与 ccode 冲突的参数时使用）
 
 ### 使用方式
-支持两种参数透传方式：
-
-1. **直接透传**（推荐用于无冲突参数）
-2. **使用 `--` 分隔符**（用于可能冲突的参数）
 
 ```bash
-# 直接透传（适用于大多数情况）
-ccode run [name] [--group direct] <claude_args>...
+# 顶层透传（使用默认 profile）
+ccode --version                                   # 先打印 ccode 版本再透传
+ccode code --project myapp                        # 启动 claude 并打开项目
 
-# 使用 -- 分隔符（避免参数冲突）
-ccode run [name] [--group direct] -- <claude_args>...
-
-# 示例
-ccode run myapi --version                        # 直接透传 ✅
-ccode run myapi code --project myapp             # 直接透传 ✅  
-ccode run myapi -- --help                       # 使用分隔符避免冲突 ✅
-ccode run myapi --help                          # ❌ 会显示ccode帮助而非claude帮助
+# 通过 profile run 指定配置
+ccode profile run myapi                           # 仅切换 profile，不传参数
+ccode profile run myapi -- --help                 # 透传 --help 给 claude
+ccode profile run myapi -- code --project myapp   # 透传多个参数
 ```
 
+说明：
+- `-- ` 分隔符用于避开 `ccode profile run` 自身的参数（例如 `--tmux-env`）冲突。
+- `ccode profile run --help` 会显示 `run` 子命令的帮助，不是 claude 的帮助；若要看 claude 的帮助请写 `ccode -- --help` 或 `ccode profile run <name> -- --help`。
+
 ### 功能特性
-- **两种透传方式**：支持直接透传和 `--` 分隔符
-- **智能冲突处理**：自动识别参数冲突并在提示中说明解决方案
+- **两种入口**：顶层 ccode 透传 + `profile run -- ...`
+- **智能冲突处理**：参数与 ccode 冲突时提示使用 `--` 分隔符
 - **完整透传**：支持所有 `claude` 命令的参数和选项
-  
 
 ### 实现原理
-1. 使用 `trailing_var_arg = true` 解析尾随参数，支持两种使用方式
-2. **直接透传**：参数直接被 clap 收集为尾随参数
-3. **`--` 分隔符**：clap 自动识别并正确处理分隔符后的参数
-4. **冲突检测**：当参数与 ccode 自身参数冲突时，建议使用 `--` 分隔符
-5. 在 Direct 模式下将收集的参数附加到 `claude` 命令执行
+1. `ProfileCommands::Run` 使用 `trailing_var_arg = true` 与 `allow_hyphen_values = true` 收集 `claude_args`
+2. 顶层 `ccode` 无参数时调用 `cmd_run(None, TmuxEnvMode::Auto, vec![], true)`；有参数且非 `profile` 时，整段参数作为 `claude_args` 透传
+3. 冲突检测：当参数与 `profile run` 自身参数冲突时，提示改用 `--` 分隔符
+4. 在启动 `claude` 时将收集的参数追加到命令行
 
 ## tmux / Team 模式兼容
 
 - 背景：Claude Code 在 `--tmux`/Team 工作流中，新 pane/window 会从 tmux 会话环境继承变量；若 tmux `update-environment` 未包含 `ANTHROPIC_*`，后续实例可能丢失密钥与 URL。
-- 方案：`ccode run` 在 `--tmux-env=auto`（默认）下，检测到 `--tmux`/`--worktree` 或当前处于 tmux 会话时，临时补齐 tmux `update-environment`，并在命令结束后自动恢复原值。
-- 清理：`ccode tmux clear-env` 可手动清除 tmux 会话中的相关环境变量。
+- 方案：`ccode profile run` 在 `--tmux-env=auto`（默认）下，检测到 `--tmux`/`--worktree` 或当前处于 tmux 会话时，临时补齐 tmux `update-environment`，并在命令结束后自动恢复原值。
+- 清理：`ccode profile clear-env` 可手动清除 tmux 会话中的相关环境变量。
 
 ## 环境变量冲突检测
 
@@ -467,9 +516,11 @@ plugin-name/
 **基本结构**：
 ```
 skill-name/
-├── SKILL.md              # 技能定义（必需）
-├── README.md             # 快速入门
-└── REFERENCE.md          # 完整参考
+├── SKILL.md              # 技能定义（必需，作为精简入口）
+├── README.md             # 面向使用者的快速入门
+├── references/           # 完整技术参考，按主题拆分（按需加载）
+├── examples/             # 端到端示例工作流（按需加载）
+└── scripts/              # 辅助脚本（诊断/预检等，按需调用）
 ```
 
 **SKILL.md 格式**：
@@ -499,9 +550,11 @@ description: 技能简短描述
 ```
 
 **文档组织**：
-- **SKILL.md**：Claude Code 读取的核心定义
+- **SKILL.md**：Claude Code 读取的核心定义（精简，作为入口）
 - **README.md**：用户快速入门指南
-- **REFERENCE.md**：完整技术参考文档
+- **references/**：完整技术参考，按主题拆分为多个 Markdown（渐进披露）
+- **examples/**：端到端示例工作流
+- **scripts/**：辅助脚本（诊断、预检等）
 
 ### 插件注册流程
 
@@ -530,10 +583,10 @@ claude code
 ## 关键架构模式
 
 ### 1. 配置迁移模式（CLI 工具）
-- **自动迁移**：检测到 `config.json` 且无 `config.toml` 时自动迁移
-- **手动合并**：`ccode config merge` 合并同名 profile
+- **自动迁移（唯一路径）**：每次启动 `ccode` 时 `auto_migrate_if_needed()` 检测；存在 `config.json` 且无 `config.toml` 时触发
 - **备份机制**：`config.json.bak-YYYYMMDD-HHMMSS`
-- **失败保护**：任一步失败不删除原文件
+- **失败保护**：任一步失败都不删除原 JSON，可手动回滚
+- **废弃**：旧的 `ccode config merge` 子命令已移除（`DEPRECATED_COMMANDS` 中对 `config` 给出提示）
 
 ### 2. Hooks 注入模式（ccode-notify）
 - 通过 `hooks.json` 注册事件监听
@@ -542,10 +595,10 @@ claude code
 - 参考 `explanatory-output-style` 的设计思路
 
 ### 3. Skills 定义模式（ccode-skills）
-- **SKILL.md**：Claude Code 读取的技能定义
+- **SKILL.md**：Claude Code 读取的技能定义（保持精简）
 - **README.md**：用户快速入门
-- **REFERENCE.md**：完整参考文档
-- **YAML Front Matter**：`name` 和 `description` 元数据
+- **references/** / **examples/** / **scripts/**：按需加载的完整参考、示例与脚本（渐进披露）
+- **YAML Front Matter**：`name`、`description`，必要时附 `allowed-tools`
 
 ### 4. 命名空间隔离（Memory）
 - 格式：`project:<repo>:<category>:<identifier>`
@@ -555,5 +608,7 @@ claude code
 
 ## 迁移指引（摘要）
 
-- 自动：检测到 `config.json` 且缺少 `config.toml` 时自动迁移并备份，成功后删除 JSON。
-- 手动：`ccode config merge`；同名跳过；迁移默认 profile；写入 `.env`；成功后删除 JSON；失败不删除。
+- 启动任意 `ccode` 命令时 `migrate::auto_migrate_if_needed()` 自动检测；仅在存在 `config.json` 且缺少 `config.toml` 时触发。
+- 成功后：写入 `config.toml` + 同级 `.env`，原 `config.json` 被重命名为 `config.json.bak-YYYYMMDD-HHMMSS`。
+- 失败时：保留原 JSON 不动，打印 `⚠️ 自动迁移失败: ...` 以便用户人工介入。
+- 旧的 `ccode config merge` 已废弃，无需也不能手动触发。

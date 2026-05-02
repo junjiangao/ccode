@@ -1,225 +1,195 @@
 ---
 name: git-commit
-description: 智能 Git 提交助手：审查代码变更、分析提交历史、生成符合项目规范的提交信息并执行提交。支持自定义规范、提交前确认和智能暂存区处理。
+description: 当用户要求"提交代码 / commit / git commit / 帮我提交 / 提交当前修改 / 审查并提交"时使用本技能。它会探测暂存区、运行项目自适应的预检（格式化/lint/敏感信息扫描）、学习项目提交风格、生成符合规范的提交信息，并在用户确认后执行 `git commit`。通用实现，不绑定特定语言或框架。
+allowed-tools:
+  - Bash
+  - AskUserQuestion
+  - mcp__memory__open_nodes
+  - mcp__memory__search_nodes
+  - mcp__memory__create_entities
+  - mcp__memory__add_observations
+  - mcp__sequential-thinking__sequentialthinking
 ---
 
 # Git Commit 技能
 
-智能化的 Git 提交工作流，集成代码审查、历史分析和规范化提交信息生成。
+智能化 Git 提交助手：检查变更 → 预检 → 识别规范 → 生成信息 → 确认 → 提交。**仅在用户明确要求时 commit**；其他自动化场景（如 `保存`、`build`）不触发。
 
-## 🎯 使用场景
+## 何时使用
 
-### 触发条件
-- 用户明确请求创建 Git 提交
-- 关键词：`提交`、`commit`、`git commit`、`提交代码`
-- 用户完成代码修改后需要提交变更
+- 用户说"提交"、"commit"、"git commit"、"帮我提交"、"把这些改动提交到 git"、"审查并提交"
+- 用户完成修改后显式请求入库
 
-### 典型示例
-```
-用户: "帮我提交这些代码"
-用户: "审查并提交当前的修改"
-用户: "创建一个 commit"
-用户: "把这些改动提交到 git"
-```
+## 何时不使用
 
-## 📋 工作流程
+- 未包含明确提交意图的动词（`保存`、`格式化`、`跑测试`）
+- 修改中但用户只要预检/审查，没说要 commit
+- 用户要求 push / PR / merge —— 另外的工作流，但本技能结束后不会自动 push（见安全红线 #8）
 
-### 1. 检查暂存区状态
+## 工作流程（8 步）
+
+### 1. 摸清状态
+
 ```bash
-# 检查暂存区
 git status --porcelain
 git diff --cached --stat
-
-# 如果暂存区为空，列出工作区文件
-git status --short
-git diff --name-status
+git diff --stat              # 暂存区为空时追加看工作区
 ```
 
-**决策逻辑**：
-- **暂存区非空** → 直接使用暂存区文件
-- **暂存区为空** → 列出工作区修改文件，询问用户确认提交范围
+判定：**暂存区非空** → 直接使用；**暂存区为空** → 进入第 2 步。
 
-### 2. 用户确认（暂存区为空时）
-**列出工作区文件**：
+### 2. 用户确认提交范围（仅当暂存区空）
+
+用 `AskUserQuestion` 列出 `git status --short` 结果，让用户选择「全部 / 特定文件 / 取消」。**禁止自动 `git add -A` 或 `git add .`**（避免误提交 `.env`、凭证等，详见 `references/safety-rules.md#2`）。根据用户选择执行 `git add <显式文件列表>`。
+
+### 3. 预检
+
+优先调用预检脚本（自动探测 Rust/Node/Python/Go 并运行对应 fmt/lint + 通用敏感信息扫描）：
+
 ```bash
-# 获取所有修改、新增、删除的文件
-git status --short
-# 输出格式：
-#  M src/main.rs        (修改)
-#  A src/config.rs      (新增)
-#  D old/legacy.rs      (删除)
-# ?? untracked.txt      (未跟踪)
+bash "${CLAUDE_PLUGIN_ROOT}/skills/git-commit/scripts/precheck.sh"
 ```
 
-使用 `AskUserQuestion` 工具询问：
-- 提交所有修改的文件？
-- 提交特定文件？（展示上述文件清单供选择）
-- 取消提交？
+退出码：`0` 通过 / `1` 阻断（必须修复）/ `2` 告警（让用户确认）。
 
-根据用户选择执行 `git add` 操作。
+脚本不可用时的手动最小检查：
 
-### 3. 简单代码审查
-检查项：
-- 语法错误（通过 `cargo check`、`npm run lint` 等）
-- 明显的逻辑问题
-- 调试代码残留（console.log、println!、TODO 等）
-- 敏感信息泄露（密钥、令牌、凭证）
+```bash
+git diff --cached --check    # 空白符 / 冲突标记
+git diff --cached | grep -En '(AKIA|sk-|-----BEGIN.*PRIVATE KEY)' || true
+```
 
-**不执行深度审查**（不调用 Codex MCP），保持快速反馈。
+**命中敏感信息必须停下**，不要自作主张绕过（详见 `references/safety-rules.md#5--6`）。
 
-### 4. 分析提交历史
+### 4. 学习项目提交风格
+
 ```bash
 git log --oneline -10
 git log --format="%s" -20
 ```
 
-**分析目标**：
-- 识别项目的提交信息风格
-- 提取常用的 type 和 scope
-- 保持提交风格一致性
+分析：常用 type/scope、subject 语言（中/英）、是否带 body / footer。
 
-### 5. 读取项目提交规范
-从 Memory 中查找项目级提交规范：
-```
-# 使用项目级精确查询，避免跨项目污染
-mcp__memory__search_nodes(query: "project:<repo>:commit-convention")
-mcp__memory__open_nodes(names: ["project:<repo>:commit-convention"])
-```
+### 5. 读取项目规范
 
-**命名空间说明**：
-- `<repo>` 应替换为实际的仓库名称（如 `ccode`、`myproject`）
-- 使用 `project:` 前缀确保查询范围限定在当前项目
-- 避免使用模糊查询（如 `"commit convention"`），防止匹配到其他项目的规范
+按优先级查找（见 `references/commit-conventions.md#规范识别优先级推荐`）：
 
-**规范来源优先级**：
-1. Memory 中的项目规范
-2. 提交历史中的风格模式
-3. 通用的简洁描述格式
+1. **Memory**：
+   ```json
+   {
+     "name": "mcp__memory__open_nodes",
+     "parameters": {"names": ["project:<repo>:commit-convention"]}
+   }
+   ```
+   `<repo>` 取 `basename "$(git rev-parse --show-toplevel)"`。
+2. **`.gitmessage` 模板**：`git config --get commit.template`
+3. **`.commitlintrc*` / `commitlint.config.*`**：若存在默认套用 Conventional Commits
+4. **历史推断**：第 4 步的结论
+5. **兜底**：简洁描述格式
 
 ### 6. 生成提交信息
-使用 `mcp__sequential-thinking__sequentialthinking` 分析变更并生成提交信息：
 
-**思考步骤**（6-8 步）：
-1. 分析 `git diff --cached` 的变更内容
-2. 识别变更的主要目的（新功能、修复、重构等）
-3. 提取关键的文件和模块
-4. 匹配项目提交规范格式
-5. 生成简洁准确的提交信息
-6. 验证提交信息是否符合规范
+使用 `mcp__sequential-thinking__sequentialthinking`（6–8 步）分析 `git diff --cached`：
 
-**提交信息格式**（根据项目规范）：
-- 自定义规范：遵循 Memory 中的定义
-- 无规范时：`<type>: <简洁描述>`
+1. 识别变更目的（新功能 / 修复 / 重构 / 文档 ...）
+2. 提取关键文件与模块
+3. 匹配第 5 步确定的规范
+4. 起草 subject（简洁、祈使句、长度合规）
+5. 若变更跨多点，补充 body 列点
+6. 校验是否命中规范要求的字段
 
-### 7. 展示变更摘要和提交信息
-向用户展示：
+**不要**在消息里写「Co-Authored-By: Claude」、「Generated with ...」等广告语，除非项目规范明文要求。
+
+### 7. 展示变更摘要 + 等待确认
+
 ```
-📊 变更摘要：
-  - 修改文件：3 个
-  - 新增行：+45
-  - 删除行：-12
+📊 变更摘要
+  - 修改文件：<数量>
+  - +<新增> / -<删除>
+  - 暂存区：<文件列表>
 
-📝 提交信息：
-  feat(config): 添加 TOML 配置支持
+📝 提交信息
+  <subject>
 
-  - 实现 TOML 配置读取
-  - 添加 .env 文件支持
-  - 更新配置迁移逻辑
+  <body，如有>
 
-✅ 代码审查：通过（无明显问题）
+✅ 预检：<通过 / 有告警，详情…>
 
-是否确认提交？
+确认提交？回复"确认" / "改成：<新文案>" / "取消"。
 ```
 
 ### 8. 执行提交
-用户确认后执行：
+
+**强制使用 HEREDOC** 以保留多行格式、规避 shell 转义：
+
 ```bash
 git commit -m "$(cat <<'EOF'
-<提交信息>
+<subject>
+
+<body>
 EOF
 )"
 ```
 
-验证提交成功：
+`'EOF'` 带引号是关键——阻止 `$` / 反引号展开。
+
+验证：
+
 ```bash
 git log -1 --oneline
 ```
 
-## 🔧 MCP 工具调用
+**不自动 `git push`**，除非用户消息中同时包含"提交"与"推送"（见 `references/safety-rules.md#8`）。
 
-### Memory 工具
-```json
-{
-  "name": "mcp__memory__search_nodes",
-  "parameters": {
-    "query": "project:<repo>:commit-convention"
-  }
-}
-```
+## 安全红线（简版，完整见 references/safety-rules.md）
 
-```json
-{
-  "name": "mcp__memory__open_nodes",
-  "parameters": {
-    "names": ["project:<repo>:commit-convention"]
-  }
-}
-```
+| 红线 | 动作 |
+|------|------|
+| 只在用户明示要 commit 时才执行 | 模糊时用 `AskUserQuestion` 确认 |
+| 禁止 `git add -A` / `.` / `--all` | 按显式文件名 stage |
+| 禁止 `--no-verify` / `--no-gpg-sign` | 除非用户显式要求并已告知风险 |
+| Hook 失败 → 新建 commit | **不要** `--amend` 覆盖上一次成功的提交 |
+| 敏感文件名命中 → 停下询问 | `.env`、`*.pem`、`id_rsa*` 等 |
+| diff 命中密钥正则 → 停下询问 | 真密钥拒绝；占位符需用户显式确认 |
+| 不向 main/master 做破坏性操作 | `push --force`、`reset --hard` 等 |
+| 提交信息用 HEREDOC + `'EOF'` | 不要用单行 `-m "..."` 处理多行 |
 
-**注意**：`<repo>` 应替换为实际仓库名，如 `project:ccode:commit-convention`
+## 错误处理
 
-### Sequential Thinking 工具
-```json
-{
-  "name": "mcp__sequential-thinking__sequentialthinking",
-  "parameters": {
-    "thought": "分析 git diff 变更内容...",
-    "thoughtNumber": 1,
-    "totalThoughts": 6,
-    "nextThoughtNeeded": true
-  }
-}
-```
+| 场景 | 处理 |
+|------|------|
+| 暂存区为空且用户选"取消" | 回复"已取消提交"，不执行任何 git 命令 |
+| 预检阻断 | 展示失败项，询问用户是修复还是放弃；不要绕过 |
+| Hook 失败 | 读取报错 → 修复 → 重新 stage → **新建** commit |
+| 签名失败 | 提示用户 `git config commit.gpgsign` 与密钥问题；禁止 `--no-gpg-sign` 绕过 |
+| 提交信息不符合 commitlint | 按报错调整信息重试，不改 hook |
 
-## 📝 协作模板
+## 附加资源
 
-### 标准提交流程
-```markdown
-1. 检查暂存区状态（git status --porcelain, git diff --cached --stat）
-2. 如果暂存区为空：
-   - 使用 git status --short 列出所有工作区修改文件
-   - 询问用户选择提交范围（全部/特定文件/取消）
-   - 根据选择执行 git add
-3. 简单代码审查（语法、明显问题）
-4. 分析最近 20 条提交历史（git log --format="%s" -20）
-5. 从 Memory 读取项目提交规范（使用 project:<repo>:commit-convention 精确查询）
-6. 使用 Sequential Thinking 生成提交信息
-7. 展示变更摘要和提交信息
-8. 等待用户确认
-9. 执行 git commit
-10. 验证提交成功（git log -1 --oneline）
-```
+### references/
 
-### 提交信息生成模板
-```markdown
-根据以下信息生成提交信息：
+- **[commit-conventions.md](references/commit-conventions.md)** — Conventional Commits / Angular / Gitmoji / 工单前缀四种规范 + FAQ
+- **[memory-templates.md](references/memory-templates.md)** — 五种 Memory 配置模板（多语言/多格式）
+- **[safety-rules.md](references/safety-rules.md)** — 完整安全红线详解与默认行为表
 
-**变更内容**：
-<git diff --cached 输出>
+### examples/
 
-**项目规范**：
-<Memory 中的规范或历史风格>
+- **[commit-workflow.md](examples/commit-workflow.md)** — 端到端样例：空暂存区选文件 → 预检 → HEREDOC commit → hook 失败重试 → 敏感文件分支
 
-**要求**：
-- 简洁准确，一行概括主要变更
-- 如有多个变更，在正文中分点说明
-- 遵循项目规范格式
-- 避免技术细节，关注变更目的
-```
+### scripts/
 
-## ⚙️ 配置项目提交规范
+- **[precheck.sh](scripts/precheck.sh)** — 按项目类型自动探测的通用预检（Rust/Node/Python/Go）+ 敏感信息扫描；`--quick` 秒级模式跳过工具链仅做安全扫描
 
-### 在 Memory 中记录规范
+### 用户入口
+
+- **[README.md](README.md)** — 面向使用者的快速入门
+
+---
+
+## 配置项目规范（一次性）
+
+用户首次提供规范时保存到 Memory，供后续会话复用：
+
 ```json
 {
   "name": "mcp__memory__create_entities",
@@ -227,88 +197,10 @@ git log -1 --oneline
     "entities": [{
       "name": "project:<repo>:commit-convention",
       "entityType": "convention",
-      "observations": [
-        "使用 Conventional Commits 格式：<type>(<scope>): <subject>",
-        "常用 type：feat, fix, docs, refactor, test, chore",
-        "scope 为可选，表示影响的模块",
-        "subject 使用中文，简洁描述变更",
-        "正文可选，详细说明变更原因和影响"
-      ]
+      "observations": ["..."]
     }]
   }
 }
 ```
 
-**命名规范**：
-- 实体名称格式：`project:<repo>:commit-convention`
-- `<repo>` 替换为实际仓库名（如 `ccode`、`myproject`）
-- 使用 kebab-case 命名风格
-- 确保命名空间隔离，避免跨项目污染
-
-### 示例规范
-```
-type(scope): subject
-
-body (可选)
-
-footer (可选)
-```
-
-**type 类型**：
-- `feat`: 新功能
-- `fix`: 修复 bug
-- `docs`: 文档更新
-- `refactor`: 重构
-- `test`: 测试相关
-- `chore`: 构建/工具/依赖更新
-
-## ✅ 最佳实践
-
-### 推荐做法
-1. **提交前审查**：始终检查 `git diff` 确认变更内容
-2. **原子提交**：每次提交只包含一个逻辑变更
-3. **清晰描述**：提交信息应让他人快速理解变更目的
-4. **遵循规范**：保持项目提交风格一致
-5. **及时提交**：完成一个功能点后立即提交
-
-### 避免事项
-1. **混合变更**：不要在一次提交中包含多个不相关的修改
-2. **模糊描述**：避免 "update code"、"fix bug" 等无意义信息
-3. **提交敏感信息**：检查是否包含密钥、令牌等
-4. **跳过审查**：即使是小改动也应快速检查
-5. **忽略规范**：不要随意偏离项目约定的格式
-
-## 🚨 错误处理
-
-### 暂存区为空且用户取消
-```
-暂存区为空，需要先添加文件。
-已取消提交操作。
-```
-
-### 代码审查发现问题
-```
-⚠️ 代码审查发现以下问题：
-  - src/main.rs:42: 包含 println! 调试代码
-  - config/.env: 可能包含敏感信息
-
-建议修复后再提交。是否继续？
-```
-
-### 提交失败
-```
-❌ 提交失败：<错误信息>
-
-可能原因：
-  - pre-commit hook 失败
-  - 提交信息格式不符合要求
-  - Git 配置问题
-
-请检查错误信息并重试。
-```
-
-## 📚 相关资源
-
-- [Conventional Commits 规范](https://www.conventionalcommits.org/)
-- [Git 提交最佳实践](https://git-scm.com/book/zh/v2)
-- [如何编写 Git 提交信息](https://cbea.ms/git-commit/)
+完整模板见 [references/memory-templates.md](references/memory-templates.md)。
