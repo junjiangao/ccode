@@ -2,6 +2,17 @@
 
 本项目遵循 Keep a Changelog 的书写方式，并尽量遵循 语义化版本号（SemVer）。
 
+## [v0.5.1] - 2026-05-07
+
+重要改动
+- 新增
+  - `TomlProfile` 新增 `model_subagent` 字段，支持 `CLAUDE_CODE_SUBAGENT_MODEL` 环境变量，允许用户在 profile 中配置子代理使用的模型。
+  - `ccode profile list` 显示 subagent 模型；`ccode profile add` 交互式录入该字段。
+  - 环境冲突检测和 tmux 环境同步变量列表包含 `CLAUDE_CODE_SUBAGENT_MODEL`。
+- 文档
+  - README.md 更新字段映射表、输出字段说明、工作原理和冲突检测列表。
+  - CLAUDE.md 版本同步至 v0.5.1，补充 `model_subagent` 与 `CLAUDE_CODE_SUBAGENT_MODEL` 的映射说明。
+
 ## [v0.5.0] - 2026-04-09
 
 重要改动

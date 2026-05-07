@@ -80,6 +80,7 @@ sudo cp target/release/ccode /usr/local/bin/
 - ANTHROPIC_AUTH_TOKEN → 通过 `env_key` 指定的环境变量读取（同级 `.env` 或系统环境）
 - ANTHROPIC_BASE_URL → `base_url`
 - CLAUDE_CODE_MAX_OUTPUT_TOKENS → `max_tokens`
+- CLAUDE_CODE_SUBAGENT_MODEL → `model_subagent`
 
 #### 配置文件位置
 - Linux/macOS: `~/.config/ccode/config.toml`
@@ -268,7 +269,7 @@ ccode profile clear-env               # 清理 tmux 中 ccode 相关环境变量
 ### 📋 输出字段说明（v0.5.0）
 - `base_url`：目标 API 基础地址
 - `env_key`：从同级 `~/.config/ccode/.env` 或系统环境读取的变量名
-- `model` / `model_haiku` / `model_sonnet` / `model_opus`：模型或家族模型
+- `model` / `model_haiku` / `model_sonnet` / `model_opus` / `model_subagent`：模型或家族模型
 - `max_tokens`：最大输出 tokens（可选）
 - `说明`：对该配置的人类可读备注
 
@@ -301,6 +302,7 @@ ccode profile clear-env               # 清理 tmux 中 ccode 相关环境变量
    - `ANTHROPIC_DEFAULT_SONNET_MODEL` ← `model_sonnet`（可选）
    - `ANTHROPIC_DEFAULT_OPUS_MODEL` ← `model_opus`（可选）
    - `CLAUDE_CODE_MAX_OUTPUT_TOKENS` ← `max_tokens`（可选）
+   - `CLAUDE_CODE_SUBAGENT_MODEL` ← `model_subagent`（可选）
 5. 透传参数并启动 `claude`
 
 ### 环境变量冲突检测
@@ -321,6 +323,7 @@ ccode profile clear-env               # 清理 tmux 中 ccode 相关环境变量
 - `ANTHROPIC_DEFAULT_SONNET_MODEL`
 - `ANTHROPIC_DEFAULT_OPUS_MODEL`
 - `CLAUDE_CODE_MAX_OUTPUT_TOKENS`
+- `CLAUDE_CODE_SUBAGENT_MODEL`
 
 **冲突警告示例：**
 ```
@@ -377,6 +380,11 @@ ccode run myapi --tmux-env never -- --worktree team-a --tmux
 <!-- 架构图（CCR 集成）已移除 -->
 
 ## 📝 版本变更
+
+### v0.5.1（2026-05-07）
+- **新增**：`model_subagent` 字段，支持 `CLAUDE_CODE_SUBAGENT_MODEL` 环境变量配置，允许在 profile 中指定子代理使用的模型。
+- **新增**：环境冲突检测和 tmux 同步包含 `CLAUDE_CODE_SUBAGENT_MODEL`。
+- **文档**：更新字段映射、输出字段说明、工作原理和冲突检测列表，补充 `model_subagent` 相关内容。
 
 ### v0.5.0（2026-04-09）
 - **变更（破坏性）**：重构命令结构，引入 `profile` 子命令统一管理配置。
@@ -533,7 +541,7 @@ cargo build --release
 
 ---
 
-**最后更新**: 2026-04-09 | **架构版本**: v0.5.0（配置管理工具）
+**最后更新**: 2026-05-07 | **架构版本**: v0.5.1（配置管理工具）
 [必填项说明]
 - 每个 profile 必填：`name`、`base_url`、`env_key`
 - 其他字段（`model*`、`max_tokens`、`comment`）均为可选

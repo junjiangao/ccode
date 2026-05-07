@@ -207,7 +207,7 @@ pub fn cmd_list() -> AppResult<()> {
         if let Some(m) = &p.model_opus {
             println!("   🎻 opus: {}", m);
         }
-        if let Some(m) = &p.subagent_model {
+        if let Some(m) = &p.model_subagent {
             println!("   🤖 subagent: {}", m);
         }
         if let Some(mt) = &p.max_tokens {
@@ -251,7 +251,7 @@ pub fn cmd_add(name: String) -> AppResult<()> {
     let model_haiku = read_optional_input("🐦 请输入 ANTHROPIC_DEFAULT_HAIKU_MODEL (可选): ")?;
     let model_sonnet = read_optional_input("🎼 请输入 ANTHROPIC_DEFAULT_SONNET_MODEL (可选): ")?;
     let model_opus = read_optional_input("🎻 请输入 ANTHROPIC_DEFAULT_OPUS_MODEL (可选): ")?;
-    let subagent_model = read_optional_input("🤖 请输入 CLAUDE_CODE_SUBAGENT_MODEL (可选): ")?;
+    let model_subagent = read_optional_input("🤖 请输入 CLAUDE_CODE_SUBAGENT_MODEL (可选): ")?;
     let max_tokens =
         read_optional_input("📦 请输入 CLAUDE_CODE_MAX_OUTPUT_TOKENS (可选，如 32000): ")?;
     let comment = read_optional_input("📝 请输入 comment (可选): ")?;
@@ -264,7 +264,7 @@ pub fn cmd_add(name: String) -> AppResult<()> {
         model_haiku,
         model_sonnet,
         model_opus,
-        subagent_model,
+        model_subagent,
         max_tokens,
         comment,
     };
@@ -349,7 +349,7 @@ pub fn cmd_run(
     if profile.max_tokens.is_some() {
         profile_env_vars.insert("CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string());
     }
-    if profile.subagent_model.is_some() {
+    if profile.model_subagent.is_some() {
         profile_env_vars.insert("CLAUDE_CODE_SUBAGENT_MODEL".to_string());
     }
 
@@ -402,7 +402,7 @@ pub fn cmd_run(
     if let Some(m) = sonnet_model {
         env_vars.push(("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), m.clone()));
     }
-    if let Some(v) = &profile.subagent_model {
+    if let Some(v) = &profile.model_subagent {
         env_vars.push(("CLAUDE_CODE_SUBAGENT_MODEL".to_string(), v.clone()));
     }
     if let Some(max) = &profile.max_tokens {
@@ -435,7 +435,7 @@ pub fn cmd_run(
     if let Some(m) = sonnet_model_fallback {
         cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
     }
-    if let Some(m) = &profile.subagent_model {
+    if let Some(m) = &profile.model_subagent {
         cmd.env("CLAUDE_CODE_SUBAGENT_MODEL", m);
     }
     if let Some(max) = &profile.max_tokens {

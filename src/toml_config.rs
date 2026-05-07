@@ -14,7 +14,7 @@ pub struct TomlProfile {
     pub model_haiku: Option<String>,
     pub model_sonnet: Option<String>,
     pub model_opus: Option<String>,
-    pub subagent_model: Option<String>,
+    pub model_subagent: Option<String>,
     pub max_tokens: Option<String>,
     pub comment: Option<String>,
 }
