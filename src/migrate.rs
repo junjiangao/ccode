@@ -63,6 +63,7 @@ fn map_json_to_toml(
                 model_haiku: None,
                 model_sonnet: None,
                 model_opus: None,
+                subagent_model: None,
                 max_tokens: None,
                 comment,
             };

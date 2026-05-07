@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-版本: v0.5.0 | 更新日期: 2026-05-02
+版本: v0.5.1 | 更新日期: 2026-05-07
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 🎯 CLI 工具核心架构（仅 Direct）
 
 - 通过 `config.toml` 指定 `base_url` 与 `env_key`（从同级 `.env` 或系统环境读取 token）。
-- 可选配置 `model` 与家族模型：`model_haiku`、`model_sonnet`、`model_opus`（对应 `ANTHROPIC_DEFAULT_*` 环境变量）。
+- 可选配置 `model` 与家族模型：`model_haiku`、`model_sonnet`、`model_opus`、`subagent_model`（对应 `ANTHROPIC_DEFAULT_*` 与 `CLAUDE_CODE_SUBAGENT_MODEL` 环境变量）。
 - 兼容性：当 `model_haiku` 存在时，同时设置 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 与（兼容）`ANTHROPIC_SMALL_FAST_MODEL` 两个环境变量。
 - 顶层裸 `ccode`（无参数或后跟 `claude` 参数）直接使用默认 profile 启动 `claude`；profile 管理全部归入 `ccode profile <子命令>`。
 - 支持参数透传到 `claude` 命令。
@@ -305,6 +305,7 @@ project:<repo>:commit-convention
 - **`ANTHROPIC_DEFAULT_SONNET_MODEL`**: Sonnet 系列（对应 `model_sonnet`）
 - **`ANTHROPIC_DEFAULT_OPUS_MODEL`**: Opus 系列（对应 `model_opus`）
 - **`CLAUDE_CODE_MAX_OUTPUT_TOKENS`**: 最大输出 token（对应 `max_tokens`）
+- **`CLAUDE_CODE_SUBAGENT_MODEL`**: 子代理覆盖模型（对应 `subagent_model`）
 - `ANTHROPIC_SMALL_FAST_MODEL`（已弃用）：为兼容，程序在 `model_haiku` 存在时仍会同时设置该变量。
 
 兼容性说明：当 `model_haiku` 存在时，运行时会同时注入 `ANTHROPIC_DEFAULT_HAIKU_MODEL` 与 `ANTHROPIC_SMALL_FAST_MODEL` 两个变量。
@@ -396,6 +397,7 @@ ccode profile run myapi -- code --project myapp   # 透传多个参数
 - `ANTHROPIC_DEFAULT_SONNET_MODEL`
 - `ANTHROPIC_DEFAULT_OPUS_MODEL`
 - `CLAUDE_CODE_MAX_OUTPUT_TOKENS`
+- `CLAUDE_CODE_SUBAGENT_MODEL`
 
 ### 冲突警告示例
 

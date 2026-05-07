@@ -17,6 +17,7 @@ const RELEVANT_ENV_VARS: &[&str] = &[
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
 ];
 
 /// 获取 Claude Code settings.json 路径
@@ -206,6 +207,9 @@ pub fn cmd_list() -> AppResult<()> {
         if let Some(m) = &p.model_opus {
             println!("   🎻 opus: {}", m);
         }
+        if let Some(m) = &p.subagent_model {
+            println!("   🤖 subagent: {}", m);
+        }
         if let Some(mt) = &p.max_tokens {
             println!("   📦 max_tokens: {}", mt);
         }
@@ -247,6 +251,7 @@ pub fn cmd_add(name: String) -> AppResult<()> {
     let model_haiku = read_optional_input("🐦 请输入 ANTHROPIC_DEFAULT_HAIKU_MODEL (可选): ")?;
     let model_sonnet = read_optional_input("🎼 请输入 ANTHROPIC_DEFAULT_SONNET_MODEL (可选): ")?;
     let model_opus = read_optional_input("🎻 请输入 ANTHROPIC_DEFAULT_OPUS_MODEL (可选): ")?;
+    let subagent_model = read_optional_input("🤖 请输入 CLAUDE_CODE_SUBAGENT_MODEL (可选): ")?;
     let max_tokens =
         read_optional_input("📦 请输入 CLAUDE_CODE_MAX_OUTPUT_TOKENS (可选，如 32000): ")?;
     let comment = read_optional_input("📝 请输入 comment (可选): ")?;
@@ -259,6 +264,7 @@ pub fn cmd_add(name: String) -> AppResult<()> {
         model_haiku,
         model_sonnet,
         model_opus,
+        subagent_model,
         max_tokens,
         comment,
     };
@@ -343,6 +349,9 @@ pub fn cmd_run(
     if profile.max_tokens.is_some() {
         profile_env_vars.insert("CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string());
     }
+    if profile.subagent_model.is_some() {
+        profile_env_vars.insert("CLAUDE_CODE_SUBAGENT_MODEL".to_string());
+    }
 
     detect_env_conflicts(&profile_env_vars, &claude_args, quiet);
 
@@ -393,6 +402,9 @@ pub fn cmd_run(
     if let Some(m) = sonnet_model {
         env_vars.push(("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), m.clone()));
     }
+    if let Some(v) = &profile.subagent_model {
+        env_vars.push(("CLAUDE_CODE_SUBAGENT_MODEL".to_string(), v.clone()));
+    }
     if let Some(max) = &profile.max_tokens {
         env_vars.push(("CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string(), max.clone()));
     }
@@ -422,6 +434,9 @@ pub fn cmd_run(
     let sonnet_model_fallback = profile.model_sonnet.as_ref().or(profile.model.as_ref());
     if let Some(m) = sonnet_model_fallback {
         cmd.env("ANTHROPIC_DEFAULT_SONNET_MODEL", m);
+    }
+    if let Some(m) = &profile.subagent_model {
+        cmd.env("CLAUDE_CODE_SUBAGENT_MODEL", m);
     }
     if let Some(max) = &profile.max_tokens {
         cmd.env("CLAUDE_CODE_MAX_OUTPUT_TOKENS", max);

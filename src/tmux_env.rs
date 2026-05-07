@@ -13,6 +13,7 @@ pub const TMUX_SYNC_ENV_VARS: &[&str] = &[
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
