@@ -1,7 +1,7 @@
 {
   "name": "ccode-plugins",
   "metadata": {
-    "description": "ccode 的 Claude Code 插件集合。当前包含 ccode-notify：通过 hooks 以轻量方式为会话添加系统桌面通知能力（零配置、即装即用，思路参考 explanatory-output-style 的 hooks 注入模式）",
+    "description": "ccode 的 Claude Code 插件集合。包含 ccode-notify（桌面通知）、git-commit（智能提交助手）、codex-ai（Codex MCP 代码审查/架构分析）",
     "version": "1.0.0"
   },
   "owner": {
@@ -17,22 +17,25 @@
       "category": "tools"
     },
     {
-      "name": "ccode-skills",
-      "description": "ccode 的skills集合",
-      "version": "1.0.1",
-      "source": "./plugins/ccode-skills",
+      "name": "git-commit",
+      "version": "1.0.0",
+      "description": "智能 Git 提交助手技能：审查代码变更、分析提交历史、生成符合项目规范的提交信息并执行提交",
+      "source": "./plugins/git-commit",
       "strict": false,
       "skills": [
-        "./skills/codex-ai",
         "./skills/git-commit"
       ]
     },
     {
-      "name": "codex-mcp-tool",
+      "name": "codex-ai",
       "version": "1.0.0",
-      "description": "Codex MCP 工具集成，通过 Model Context Protocol 提供代码审查、算法设计和架构分析能力",
-      "source": "./external_plugins/codex-mcp-tool",
-      "category": "tools"
+      "description": "通过 Codex MCP 工具进行代码审查、算法设计、架构分析和性能优化。合并了原 codex-ai 技能与 codex-mcp-tool MCP 工具。",
+      "source": "./external_plugins/codex-ai",
+      "category": "tools",
+      "strict": false,
+      "skills": [
+        "./skills/codex-ai"
+      ]
     }
   ]
 }

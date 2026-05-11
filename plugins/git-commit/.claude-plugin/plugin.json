@@ -1,0 +1,9 @@
+{
+  "name": "git-commit",
+  "version": "1.0.0",
+  "description": "智能 Git 提交助手技能：审查代码变更、分析提交历史、生成符合项目规范的提交信息并执行提交。支持自定义规范、提交前确认和智能暂存区处理。",
+  "author": {
+    "name": "junjiangao"
+  },
+  "license": "MIT"
+}

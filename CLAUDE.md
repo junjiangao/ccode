@@ -24,10 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 🔌 插件系统概览
 
 - **ccode-notify**：桌面通知插件（Notification/Stop hooks）
-- **ccode-skills**：技能集合插件（v1.0.1）
-  - `codex-ai`：通过 Codex MCP 工具进行代码审查、算法设计和架构分析
-  - `git-commit`：智能 Git 提交助手
-- **codex-mcp-tool**：外部 MCP 插件（位于 `external_plugins/codex-mcp-tool`），为 `codex-ai` 提供 `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex` / `codex-reply` 等工具
+- **git-commit**：独立技能插件（v1.0.0），智能 Git 提交助手
+- **codex-ai**：外部插件（位于 `external_plugins/codex-ai`），合并了 Codex MCP 工具与 codex-ai 技能，通过 `mcp__plugin_codex-ai_codex-ai__codex` / `codex-reply` 提供代码审查、算法设计和架构分析能力
 
 ### ⚠️ 重要说明
 
@@ -109,28 +107,34 @@ plugins/
 │   │   └── plugin.json        # 插件元数据
 │   ├── hooks/
 │   │   └── hooks.json         # Notification & Stop hooks 配置
-│   └── hooks-handlers/
-│       ├── notify-interaction.py  # 交互提醒脚本
-│       └── notify-stop.py         # 会话停止提醒脚本
+│   ├── hooks-handlers/
+│   │   ├── notify-interaction.py  # 交互提醒脚本
+│   │   └── notify-stop.py         # 会话停止提醒脚本
+│   └── README.md
 │
-└── ccode-skills/              # 技能集合插件
+└── git-commit/                # Git 提交助手插件（独立版本管理）
+    ├── .claude-plugin/
+    │   └── plugin.json        # 插件元数据
     └── skills/
-        ├── codex-ai/          # Codex MCP 协作技能
-        │   ├── SKILL.md       # 技能定义（Claude Code 读取，保持精简）
-        │   ├── README.md      # 面向使用者的快速入门
-        │   ├── references/    # 完整参考（api-reference.md / quick-reference.md）
-        │   ├── examples/      # 端到端示例（review-workflow.md）
-        │   └── scripts/       # 辅助脚本（check-codex-mcp.sh）
-        │
-        └── git-commit/        # Git 提交助手技能
+        └── git-commit/
             ├── SKILL.md       # 技能定义
             ├── README.md      # 面向使用者的快速入门
-            ├── references/    # 规范/模板/安全红线（commit-conventions.md 等）
-            ├── examples/      # 端到端示例（commit-workflow.md）
-            └── scripts/       # 预检脚本（precheck.sh）
+            ├── references/    # 规范/模板/安全红线
+            ├── examples/      # 端到端示例
+            └── scripts/       # 预检脚本
 
 external_plugins/
-└── codex-mcp-tool/            # Codex MCP 外部插件（通过 marketplace.json 挂载）
+└── codex-ai/                  # Codex AI 插件（合并 codex-ai 技能 + MCP 工具）
+    ├── .claude-plugin/
+    │   └── plugin.json        # 插件元数据
+    ├── .mcp.json              # MCP server 配置
+    └── skills/
+        └── codex-ai/
+            ├── SKILL.md       # 技能定义
+            ├── README.md      # 面向使用者的快速入门
+            ├── references/    # 完整参考（api-reference.md / quick-reference.md）
+            ├── examples/      # 端到端示例（review-workflow.md）
+            └── scripts/       # 辅助脚本（check-codex-mcp.sh）
 ```
 
 ### 插件注册
@@ -148,26 +152,29 @@ external_plugins/
       "category": "tools"
     },
     {
-      "name": "ccode-skills",
-      "version": "1.0.1",
-      "source": "./plugins/ccode-skills",
+      "name": "git-commit",
+      "version": "1.0.0",
+      "source": "./plugins/git-commit",
       "strict": false,
       "skills": [
-        "./skills/codex-ai",
         "./skills/git-commit"
       ]
     },
     {
-      "name": "codex-mcp-tool",
+      "name": "codex-ai",
       "version": "1.0.0",
-      "source": "./external_plugins/codex-mcp-tool",
-      "category": "tools"
+      "source": "./external_plugins/codex-ai",
+      "category": "tools",
+      "strict": false,
+      "skills": [
+        "./skills/codex-ai"
+      ]
     }
   ]
 }
 ```
 
-注意：`ccode-skills` 使用 `skills` 字段显式列出子技能路径，而非依赖自动发现。
+注意：`git-commit` 与 `codex-ai` 均使用 `skills` 字段显式列出子技能路径，每个插件职责单一、可独立版本管理。
 
 ### Hooks 插件：ccode-notify
 
@@ -192,41 +199,7 @@ sudo pacman -S libnotify
 sudo dnf install libnotify
 ```
 
-### Skills 插件：ccode-skills
-
-#### 技能 1：codex-ai
-
-**用途**：通过 MCP 工具调用 Codex 处理复杂技术任务（不再使用 Bash 直接调用 `codex` CLI）。
-
-**触发场景**：
-- 代码审查（review、code review）
-- 复杂算法设计（>10行核心逻辑）
-- 架构分析与评审（系统扩展、架构重构）
-- 性能优化（瓶颈分析、性能调优）
-
-**MCP 工具调用**（由 `external_plugins/codex-mcp-tool` 提供）：
-- `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex`：启动新会话，返回 `threadId`（或旧字段 `session_id`）
-- `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply`：携带 `threadId` 续聊
-
-**调用示例**（开启新会话）：
-```json
-{
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
-  "parameters": {
-    "model": "gpt-5.3-codex",
-    "sandbox": "workspace-write",
-    "approval-policy": "on-failure",
-    "prompt": "review the uncommitted diff for correctness and style"
-  }
-}
-```
-
-**模型选择**：
-- **gpt-5.3-codex**：简单任务（代码审查、简单重构、文档生成）
-- **gpt-5.4**：复杂任务（复杂算法、架构评审、性能优化、多约束问题）
-- 通过 `config` 字段可进一步调整推理强度，如 `{"model_reasoning_effort": "xhigh"}`
-
-#### 技能 2：git-commit
+### Skills 插件：git-commit
 
 **用途**：智能化 Git 提交工作流
 
@@ -246,6 +219,38 @@ project:<repo>:commit-convention
 ```
 - 使用 `project:` 前缀确保命名空间隔离
 - `<repo>` 替换为实际仓库名（如 `ccode`）
+
+### Skills 插件：codex-ai
+
+**用途**：通过 MCP 工具调用 Codex 处理复杂技术任务（不再使用 Bash 直接调用 `codex` CLI）。
+
+**触发场景**：
+- 代码审查（review、code review）
+- 复杂算法设计（>10行核心逻辑）
+- 架构分析与评审（系统扩展、架构重构）
+- 性能优化（瓶颈分析、性能调优）
+
+**MCP 工具调用**（由 `external_plugins/codex-ai` 提供，合并了原 codex-ai 技能与 codex-mcp-tool MCP 工具）：
+- `mcp__plugin_codex-ai_codex-ai__codex`：启动新会话，返回 `threadId`（或旧字段 `session_id`）
+- `mcp__plugin_codex-ai_codex-ai__codex-reply`：携带 `threadId` 续聊
+
+**调用示例**（开启新会话）：
+```json
+{
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
+  "parameters": {
+    "model": "gpt-5.3-codex",
+    "sandbox": "workspace-write",
+    "approval-policy": "on-failure",
+    "prompt": "review the uncommitted diff for correctness and style"
+  }
+}
+```
+
+**模型选择**：
+- **gpt-5.3-codex**：简单任务（代码审查、简单重构、文档生成）
+- **gpt-5.4**：复杂任务（复杂算法、架构评审、性能优化、多约束问题）
+- 通过 `config` 字段可进一步调整推理强度，如 `{"model_reasoning_effort": "xhigh"}`
 
 ### 配置系统架构（v0.3.0）
 
@@ -596,11 +601,12 @@ claude code
 - 脚本失败不中断主流程（以 0 退出）
 - 参考 `explanatory-output-style` 的设计思路
 
-### 3. Skills 定义模式（ccode-skills）
+### 3. Skills 定义模式（git-commit / codex-ai）
 - **SKILL.md**：Claude Code 读取的技能定义（保持精简）
 - **README.md**：用户快速入门
 - **references/** / **examples/** / **scripts/**：按需加载的完整参考、示例与脚本（渐进披露）
 - **YAML Front Matter**：`name`、`description`，必要时附 `allowed-tools`
+- 每个技能作为独立插件管理，职责单一、可独立版本控制
 
 ### 4. 命名空间隔离（Memory）
 - 格式：`project:<repo>:<category>:<identifier>`

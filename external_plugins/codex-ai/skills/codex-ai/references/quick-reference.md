@@ -10,7 +10,7 @@
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "<任务描述>",
     "model": "gpt-5.3-codex",
@@ -25,7 +25,7 @@
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex-reply",
   "parameters": {
     "threadId": "<上一次返回的 threadId>",
     "prompt": "<后续问题>"
@@ -41,7 +41,7 @@
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "审查以下代码变更，聚焦潜在问题、性能与安全：\n\n<git diff 输出>",
     "model": "gpt-5.3-codex",
@@ -59,7 +59,7 @@
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "<任务描述>",
     "model": "gpt-5.3-codex",
@@ -72,7 +72,7 @@
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "<任务描述>",
     "model": "gpt-5.4",
@@ -109,7 +109,7 @@
 
 | 现象 | 诊断思路 | 解决方向 |
 |------|---------|---------|
-| MCP 工具找不到 | `codex-mcp-tool` 插件未加载 | 检查 `.claude-plugin/marketplace.json` 和 `external_plugins/codex-mcp-tool` |
+| MCP 工具找不到 | `codex-ai` 插件未加载 | 检查 `.claude-plugin/marketplace.json` 和 `external_plugins/codex-ai` |
 | MCP 调用返回底层错误 | Codex CLI 未安装或未登录 | 运行 `scripts/check-codex-mcp.sh` 诊断 |
 | 响应超时 | 任务过大、`xhigh` 推理过重 | 拆分任务；临时降到 `high` |
 | 输出过于泛泛 | prompt 未给约束 | 补齐指标、边界、期望格式 |

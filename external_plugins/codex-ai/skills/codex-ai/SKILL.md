@@ -2,14 +2,14 @@
 name: codex-ai
 description: 当用户要求"code review / 代码审查 / review 未提交变更"，或提到"算法设计 / 复杂算法 / 分布式算法 / 并发控制"、"架构分析 / 架构评审 / 系统设计 / 扩展性分析"、"性能优化 / 瓶颈分析 / p99 / 性能调优"等复杂技术任务（核心逻辑 >10 行、多约束权衡、系统级设计）时使用本技能，通过 Codex MCP 工具调起外部模型协作分析。
 allowed-tools:
-  - mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex
-  - mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply
+  - mcp__plugin_codex-ai_codex-ai__codex
+  - mcp__plugin_codex-ai_codex-ai__codex-reply
   - Bash
 ---
 
 # Codex-AI 协作技能
 
-通过 `codex-mcp-tool` 外部插件调用 Codex，处理需要深度推理的代码审查、算法设计、架构分析与性能优化任务。任务执行一律通过 MCP 工具调用，避免直接执行 `codex exec`。
+通过 `codex-ai` 外部插件调用 Codex，处理需要深度推理的代码审查、算法设计、架构分析与性能优化任务。任务执行一律通过 MCP 工具调用，避免直接执行 `codex exec`。
 
 > 说明：本文中出现的 `model` 值（如 `gpt-5.3-codex` / `gpt-5.4`）仅为示例，请按当前 Codex 实际可用版本替换；建议在 Codex 的 `config.toml` 固定模型，MCP 调用层仅在需要覆盖时显式传入。
 
@@ -34,7 +34,7 @@ allowed-tools:
 1. **识别任务类型**：代码审查 / 算法设计 / 架构分析 / 性能优化
 2. **选择模型**：简单任务 → `gpt-5.3-codex`；复杂任务 → `gpt-5.4`（详见 [references/api-reference.md#模型选择详解](references/api-reference.md#模型选择详解)）
 3. **准备上下文**：用 Bash 收集 `git diff` / 代码片段 / 性能指标 / 约束条件
-4. **调用 Codex**：通过 `mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex` 发起新会话（保留返回的 `threadId`）
+4. **调用 Codex**：通过 `mcp__plugin_codex-ai_codex-ai__codex` 发起新会话（保留返回的 `threadId`）
 5. **追问细节**（可选）：用 `codex-reply` + `threadId` 继续同一会话
 6. **格式化输出**：用下文标准模板把结果呈现给用户
 
@@ -58,7 +58,7 @@ allowed-tools:
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "<任务描述，包含目标、约束、期望输出格式>",
     "model": "gpt-5.3-codex",
@@ -79,7 +79,7 @@ allowed-tools:
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex-reply",
   "parameters": {
     "threadId": "<上一次返回的 threadId>",
     "prompt": "<追问内容>"
@@ -100,7 +100,7 @@ allowed-tools:
 
 | 症状 | 优先检查 | 详细方案 |
 |------|---------|---------|
-| 工具列表找不到 `codex-mcp-tool` | `marketplace.json` 与 `external_plugins/codex-mcp-tool` | [references/api-reference.md#诊断流程](references/api-reference.md#诊断流程) |
+| 工具列表找不到 `codex-ai` | `marketplace.json` 与 `external_plugins/codex-ai` | [references/api-reference.md#诊断流程](references/api-reference.md#诊断流程) |
 | MCP 调用返回底层错误 | Codex CLI 安装 / 登录 | 运行 `scripts/check-codex-mcp.sh` |
 | 输出泛泛 | prompt 缺约束 | 用 `AskUserQuestion` 补齐指标、边界 |
 | 响应超时 | 任务过大 / `xhigh` 过重 | 拆任务 / 临时降到 `high` |

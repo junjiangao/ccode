@@ -5,7 +5,7 @@
 #   bash scripts/check-codex-mcp.sh
 #   bash "${CLAUDE_PLUGIN_ROOT}/skills/codex-ai/scripts/check-codex-mcp.sh"
 #
-# 作用: 快速诊断 Codex CLI 与 codex-mcp-tool 插件所需环境是否就绪。
+# 作用: 快速诊断 Codex CLI 与 codex-ai 插件所需环境是否就绪。
 # 仅做只读检查,不改动任何配置。
 
 set -u
@@ -52,7 +52,7 @@ else
   warn_count=$((warn_count + 1))
 fi
 
-# --- 3) Claude Code marketplace.json 是否注册 codex-mcp-tool ------------------
+# --- 3) Claude Code marketplace.json 是否注册 codex-ai -------------------------
 # 尝试若干常见位置
 marketplace_candidates=(
   "${CLAUDE_PLUGIN_ROOT:-}"/../../../.claude-plugin/marketplace.json
@@ -70,10 +70,10 @@ for path in "${marketplace_candidates[@]}"; do
 done
 
 if [ -n "$found_marketplace" ]; then
-  if grep -q '"codex-mcp-tool"' "$found_marketplace" 2>/dev/null; then
-    say "$PASS" "marketplace.json 已注册 codex-mcp-tool ($found_marketplace)"
+  if grep -q '"codex-ai"' "$found_marketplace" 2>/dev/null; then
+    say "$PASS" "marketplace.json 已注册 codex-ai ($found_marketplace)"
   else
-    say "$WARN" "marketplace.json 未注册 codex-mcp-tool ($found_marketplace)"
+    say "$WARN" "marketplace.json 未注册 codex-ai ($found_marketplace)"
     warn_count=$((warn_count + 1))
   fi
 else
@@ -84,12 +84,12 @@ fi
 # --- 4) 外部插件目录是否存在 --------------------------------------------------
 # 基于脚本自身位置反推项目根目录: scripts/../../../../
 script_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
-# scripts -> codex-ai -> skills -> ccode-skills -> plugins -> repo root
+# scripts -> codex-ai -> skills -> codex-ai -> external_plugins -> repo root
 repo_root="$(cd "$script_dir/../../../../.." 2>/dev/null && pwd || echo "")"
-if [ -n "$repo_root" ] && [ -d "$repo_root/external_plugins/codex-mcp-tool" ]; then
-  say "$PASS" "external_plugins/codex-mcp-tool 存在"
+if [ -n "$repo_root" ] && [ -d "$repo_root/external_plugins/codex-ai" ]; then
+  say "$PASS" "external_plugins/codex-ai 存在"
 else
-  say "$WARN" "未找到 external_plugins/codex-mcp-tool (非 ccode 仓库内运行时可忽略)"
+  say "$WARN" "未找到 external_plugins/codex-ai (非 ccode 仓库内运行时可忽略)"
   warn_count=$((warn_count + 1))
 fi
 

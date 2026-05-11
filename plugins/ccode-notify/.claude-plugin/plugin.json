@@ -1,0 +1,9 @@
+{
+  "name": "ccode-notify",
+  "version": "1.0.0",
+  "description": "为 Claude Code 提供轻量的系统桌面通知：当需要用户交互时提醒（Notification），当会话停止时提示完成/中断/错误（Stop）。基于 hooks 调用本地 notify-send（libnotify），零配置即装即用。",
+  "author": {
+    "name": "junjiangao"
+  },
+  "license": "MIT"
+}

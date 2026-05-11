@@ -1,0 +1,9 @@
+{
+  "name": "codex-ai",
+  "version": "1.0.0",
+  "description": "通过 Codex MCP 工具进行代码审查、算法设计、架构分析和性能优化。合并了原 codex-ai 技能与 codex-mcp-tool MCP 工具，提供统一的 AI 协作体验。",
+  "author": {
+    "name": "junjiangao"
+  },
+  "license": "MIT"
+}

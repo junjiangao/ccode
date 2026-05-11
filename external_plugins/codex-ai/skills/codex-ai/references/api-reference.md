@@ -20,9 +20,9 @@ MCP 工具调用的完整参数参考、调用示例、诊断流程与最佳实�
 
 ## MCP 工具完整参考
 
-Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/codex-mcp-tool`）。该插件暴露两个 MCP 工具；任务执行**一律**通过它们调用 Codex，避免直接执行 `codex exec`。
+Codex-AI 技能由 `codex-ai` 外部插件提供（位于 `external_plugins/codex-ai`）。该插件暴露两个 MCP 工具；任务执行**一律**通过它们调用 Codex，避免直接执行 `codex exec`。
 
-### 工具 1：`mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex`
+### 工具 1：`mcp__plugin_codex-ai_codex-ai__codex`
 
 发起新的 Codex 会话。
 
@@ -60,7 +60,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "审查以下代码变更，关注潜在问题、性能和安全性:\n\n[git diff 输出]",
     "model": "gpt-5.3-codex",
@@ -75,7 +75,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "设计一个 LRU 缓存，容量 1000 项，支持并发访问",
     "model": "gpt-5.3-codex",
@@ -89,7 +89,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "设计一个分布式限流算法:\n- 处理 10K req/s\n- 每用户 100 req/min\n- 延迟 <1ms\n\n要求:\n- 完整数据结构设计\n- 并发控制策略\n- 性能分析",
     "model": "gpt-5.4",
@@ -103,7 +103,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "分析当前微服务架构，从 1K 扩展到 10K req/sec:\n- 当前: API Gateway → 5 个服务 → PostgreSQL + Redis\n- 挑战: 数据库 p99 瓶颈、服务紧耦合\n- 建议改进方案",
     "model": "gpt-5.4",
@@ -117,7 +117,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "优化以下函数性能:\n- 当前延迟: p99 = 500ms\n- 目标: p99 < 100ms\n- 分析热点并提供优化方案\n\n[代码]",
     "model": "gpt-5.4",
@@ -127,7 +127,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 }
 ```
 
-### 工具 2：`mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply`
+### 工具 2：`mcp__plugin_codex-ai_codex-ai__codex-reply`
 
 继续现有 Codex 会话。
 
@@ -143,7 +143,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex-reply",
   "parameters": {
     "threadId": "thread-abc123",
     "prompt": "请详细解释第二个优化方案的实现细节"
@@ -316,7 +316,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "echo ok",
     "model": "gpt-5.3-codex",
@@ -326,7 +326,7 @@ Codex-AI 技能依赖 `codex-mcp-tool` 外部插件（位于 `external_plugins/c
 }
 ```
 
-若工具列表里根本找不到这个名字，说明 `codex-mcp-tool` 插件没被 Claude Code 加载：检查 `.claude-plugin/marketplace.json` 是否列出了 `codex-mcp-tool` 条目、`external_plugins/codex-mcp-tool` 目录是否存在。
+若工具列表里根本找不到这个名字，说明 `codex-ai` 插件没被 Claude Code 加载：检查 `.claude-plugin/marketplace.json` 是否列出了 `codex-ai` 条目、`external_plugins/codex-ai` 目录是否存在。
 
 ### Step 2：Codex CLI 本地可用性
 
@@ -352,7 +352,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/codex-ai/scripts/check-codex-mcp.sh"
 codex exec -m gpt-5.3-codex "return the string 'ok'"
 ```
 
-若以上 CLI 能工作但 MCP 调用依旧失败 → 问题在 MCP server 与 Codex 之间的桥接，查看 `codex-mcp-tool` 进程输出或重启 Claude Code。
+若以上 CLI 能工作但 MCP 调用依旧失败 → 问题在 MCP server 与 Codex 之间的桥接，查看 `codex-ai` 进程输出或重启 Claude Code。
 
 ---
 
@@ -415,19 +415,19 @@ codex exec -m gpt-5.3-codex "return the string 'ok'"
 ```json
 // 1) 首轮
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {"prompt": "设计限流算法...", "model": "gpt-5.4"}
 }
 
 // 2) 追问
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex-reply",
   "parameters": {"threadId": "<threadId>", "prompt": "详细解释 Token Bucket 实现"}
 }
 
 // 3) 请求落地代码
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex-reply",
   "parameters": {"threadId": "<threadId>", "prompt": "提供 Rust 完整实现"}
 }
 ```

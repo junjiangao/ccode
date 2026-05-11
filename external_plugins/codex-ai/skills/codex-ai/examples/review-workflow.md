@@ -31,7 +31,7 @@ Codex 不会自动读你的仓库；需要把 diff 直接塞进 prompt。
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex",
   "parameters": {
     "prompt": "你是一个资深代码审查员。请审查下面这段 git diff，按优先级输出：\n\n## 审查维度\n1. 正确性：边界条件、空指针、并发、错误处理\n2. 性能：时间/空间复杂度、不必要的分配、I/O 放大\n3. 安全：命令/SQL 注入、路径穿越、敏感信息\n4. 可维护性：命名、重复代码、耦合\n\n## 输出格式\n对每一处问题给出：\n- 文件:行号\n- 严重级别（阻断 / 重要 / 提示）\n- 描述与根因\n- 具体修复建议\n\n## 变更\n```diff\n<把步骤 1 的 diff 输出原样粘贴在这里>\n```",
     "model": "gpt-5.3-codex",
@@ -89,7 +89,7 @@ Codex 不会自动读你的仓库；需要把 diff 直接塞进 prompt。
 
 ```json
 {
-  "name": "mcp__plugin_codex-mcp-tool_codex-mcp-tool__codex-reply",
+  "name": "mcp__plugin_codex-ai_codex-ai__codex-reply",
   "parameters": {
     "threadId": "thread-xxxxxxxx",
     "prompt": "请给出 #1（src/foo.rs:42 空指针解引用）的完整修复代码，包含错误类型定义与调用点的错误传播。"
@@ -110,7 +110,7 @@ Codex 不会自动读你的仓库；需要把 diff 直接塞进 prompt。
 - 用户表示"先按这些修"
 - 连续 2 次续聊未带来新信息（Codex 开始重复 / 泛泛）
 
-结束后不要主动删除 `threadId`——Codex MCP server 侧由 `codex-mcp-tool` 管理会话生命周期。
+结束后不要主动删除 `threadId`——Codex MCP server 侧由 `codex-ai` 管理会话生命周期。
 
 ## 变体：针对单个 PR 的审查
 

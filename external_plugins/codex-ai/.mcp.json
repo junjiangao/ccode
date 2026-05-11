@@ -1,5 +1,5 @@
 {
-  "codex-mcp-tool": {
+  "codex-ai": {
     "type": "stdio",
     "command": "codex",
     "args": [
