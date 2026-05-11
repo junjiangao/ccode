@@ -20,22 +20,14 @@
       "name": "git-commit",
       "version": "1.0.0",
       "description": "智能 Git 提交助手技能：审查代码变更、分析提交历史、生成符合项目规范的提交信息并执行提交",
-      "source": "./plugins/git-commit",
-      "strict": false,
-      "skills": [
-        "./skills/git-commit"
-      ]
+      "source": "./plugins/git-commit"
     },
     {
       "name": "codex-ai",
       "version": "1.0.0",
       "description": "通过 Codex MCP 工具进行代码审查、算法设计、架构分析和性能优化。合并了原 codex-ai 技能与 codex-mcp-tool MCP 工具。",
       "source": "./external_plugins/codex-ai",
-      "category": "tools",
-      "strict": false,
-      "skills": [
-        "./skills/codex-ai"
-      ]
+      "category": "tools"
     }
   ]
 }
